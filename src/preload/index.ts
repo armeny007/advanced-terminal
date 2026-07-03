@@ -34,7 +34,8 @@ const api: AdvTermApi = {
   renameTerminal: (id, name) => ipcRenderer.invoke(IPC.termRename, id, name),
   moveTerminalToFolder: (id, folderId) => ipcRenderer.invoke(IPC.termMoveToFolder, id, folderId),
   bindSession: (id, sessionId) => ipcRenderer.invoke(IPC.termBindSession, id, sessionId),
-  runClaude: (id, mode, sessionId) => ipcRenderer.invoke(IPC.termRunClaude, id, mode, sessionId),
+  runClaude: (id, mode, sessionId, extraArgs) =>
+    ipcRenderer.invoke(IPC.termRunClaude, id, mode, sessionId, extraArgs),
   onTermData: (cb) => on(IPC.termData, cb as never),
   onTermExit: (cb) => on(IPC.termExit, cb as never),
 
@@ -48,6 +49,7 @@ const api: AdvTermApi = {
   setFocusedTerm: (id) => ipcRenderer.send(IPC.uiSetFocusedTerm, id),
   onRevealTerm: (cb) => on(IPC.uiRevealTerm, cb as never),
   setAutoResumeSessions: (v) => ipcRenderer.invoke(IPC.settingsSetAutoResume, v),
+  setClaudeLaunch: (opts) => ipcRenderer.invoke(IPC.settingsSetClaudeLaunch, opts),
 
   // worktrees (V2)
   listWorktrees: (projectPath) => ipcRenderer.invoke(IPC.wtList, projectPath),

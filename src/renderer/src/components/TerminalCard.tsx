@@ -51,6 +51,7 @@ export function TerminalCard({
   hidden = false,
   maximized = false,
   onToggleMaximize,
+  onNewClaudeSession,
   onOpenSessions,
   onWorktreeDiff
 }: {
@@ -61,11 +62,13 @@ export function TerminalCard({
   hidden?: boolean
   maximized?: boolean
   onToggleMaximize?: () => void
+  onNewClaudeSession: (term: TermInfo) => void
   onOpenSessions: (bindTermId: string, cwd: string) => void
   onWorktreeDiff: (term: TermInfo) => void
 }): React.JSX.Element {
   const bodyRef = useRef<HTMLDivElement>(null)
   const fitRef = useRef<FitAddon | null>(null)
+  const xtermRef = useRef<Terminal | null>(null)
   const searchRef = useRef<SearchAddon | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchText, setSearchText] = useState('')
@@ -92,11 +95,21 @@ export function TerminalCard({
     xterm.loadAddon(search)
     xterm.open(el)
     fitRef.current = fit
+    xtermRef.current = xterm
     searchRef.current = search
     bus.register(term.id, xterm)
 
     const dims = safeFit(fit, el)
     if (dims) window.api.resizeTerminal(term.id, dims.cols, dims.rows)
+
+    // «догоняющий» fit+refresh после того, как сетка доверстается (при быстром
+    // создании нескольких терминалов начальный fit ловит промежуточный размер,
+    // из-за чего DOM-рендерер может не перерисоваться — отсюда пустые терминалы)
+    const settle = setTimeout(() => {
+      const d = safeFit(fit, el)
+      if (d) window.api.resizeTerminal(term.id, d.cols, d.rows)
+      xterm.refresh(0, xterm.rows - 1)
+    }, 140)
 
     const dataSub = xterm.onData((d) => window.api.writeTerminal(term.id, d))
     const ta = el.querySelector('textarea')
@@ -111,8 +124,23 @@ export function TerminalCard({
     })
     ro.observe(el)
 
+    // Прокрутка колесом: в обычном буфере листаем scrollback через API xterm
+    // (надёжно, не зависит от состояния DOM-вьюпорта и работает даже когда TUI
+    // включил mouse-tracking — как в iTerm/Terminal). В alt-буфере (vim, TUI на
+    // весь экран) отдаём событие приложению.
+    const onWheel = (e: WheelEvent): void => {
+      if (xterm.buffer.active.type !== 'normal') return
+      const lines = Math.sign(e.deltaY) * Math.max(1, Math.ceil(Math.abs(e.deltaY) / 24))
+      xterm.scrollLines(lines)
+      e.preventDefault()
+      e.stopImmediatePropagation()
+    }
+    el.addEventListener('wheel', onWheel, { capture: true, passive: false })
+
     return () => {
+      clearTimeout(settle)
       ro.disconnect()
+      el.removeEventListener('wheel', onWheel, { capture: true })
       dataSub.dispose()
       ta?.removeEventListener('focus', onFocus)
       ta?.removeEventListener('blur', onBlur)
@@ -122,7 +150,7 @@ export function TerminalCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [term.id])
 
-  // папка стала активной — подогнать размер (в скрытом состоянии fit не работает)
+  // папка стала активной — подогнать размер и перерисовать (в скрытом состоянии fit не работает)
   useEffect(() => {
     if (!isActiveFolder) return
     const el = bodyRef.current
@@ -131,6 +159,8 @@ export function TerminalCard({
     const id = requestAnimationFrame(() => {
       const d = safeFit(fit, el)
       if (d) window.api.resizeTerminal(term.id, d.cols, d.rows)
+      const xt = xtermRef.current
+      if (xt) xt.refresh(0, xt.rows - 1)
     })
     return () => cancelAnimationFrame(id)
   }, [isActiveFolder, term.id])
@@ -159,7 +189,7 @@ export function TerminalCard({
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  // подогнать размер при появлении (выход из скрытого/развёрнутого состояния)
+  // подогнать размер и перерисовать при появлении (выход из скрытого/развёрнутого состояния)
   useEffect(() => {
     if (hidden) return
     const el = bodyRef.current
@@ -168,6 +198,8 @@ export function TerminalCard({
     const id = requestAnimationFrame(() => {
       const d = safeFit(fit, el)
       if (d) window.api.resizeTerminal(term.id, d.cols, d.rows)
+      const xt = xtermRef.current
+      if (xt) xt.refresh(0, xt.rows - 1)
     })
     return () => cancelAnimationFrame(id)
   }, [hidden, maximized, term.id])
@@ -184,7 +216,7 @@ export function TerminalCard({
   }
 
   const claudeItems: MenuItem[] = [
-    { label: 'Новая сессия', onClick: () => window.api.runClaude(term.id, 'new') },
+    { label: 'Новая сессия…', onClick: () => onNewClaudeSession(term) },
     { label: 'Продолжить последнюю', onClick: () => window.api.runClaude(term.id, 'continue') },
     {
       label: 'Возобновить привязанную',

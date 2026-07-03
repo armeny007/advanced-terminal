@@ -6,7 +6,7 @@ import type { IPty } from 'node-pty'
 import { randomUUID } from 'crypto'
 import { homedir } from 'os'
 import { IPC } from '../shared/types'
-import type { FolderInfo, FolderPatch, RunClaudeMode, TermInfo } from '../shared/types'
+import type { ClaudeLaunchOptions, FolderInfo, FolderPatch, RunClaudeMode, TermInfo } from '../shared/types'
 import type { CreateTerminalOpts, PtyManager, Store } from './contracts'
 import { FOLDER_COLORS } from './store'
 import { EVENTS_DIR } from './paths'
@@ -128,20 +128,21 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
   })
   ipcMain.handle(
     IPC.termRunClaude,
-    (_e, id: string, mode: RunClaudeMode, sessionId?: string) => {
+    (_e, id: string, mode: RunClaudeMode, sessionId?: string, extraArgs?: string) => {
       const p = ptys.get(id)
       if (!p) return
+      const extra = extraArgs && extraArgs.trim() ? ' ' + extraArgs.trim() : ''
       if (mode === 'new') {
         const sid = randomUUID()
         store.updateTerminal(id, { claudeSessionId: sid })
-        p.write(`claude --session-id ${sid}\r`)
+        p.write(`claude --session-id ${sid}${extra}\r`)
       } else if (mode === 'resume') {
         if (!sessionId) return
         store.updateTerminal(id, { claudeSessionId: sessionId })
-        p.write(`claude --resume ${sessionId}\r`)
+        p.write(`claude --resume ${sessionId}${extra}\r`)
       } else {
         // привязка сессии придёт позже через hook SessionStart
-        p.write('claude --continue\r')
+        p.write(`claude --continue${extra}\r`)
       }
     }
   )
@@ -151,6 +152,9 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
     runtime.focusedTermId = id
   })
   ipcMain.handle(IPC.settingsSetAutoResume, (_e, v: boolean) => store.setAutoResumeSessions(v))
+  ipcMain.handle(IPC.settingsSetClaudeLaunch, (_e, opts: ClaudeLaunchOptions) =>
+    store.setClaudeLaunch(opts)
+  )
 
   app.on('before-quit', () => {
     for (const p of ptys.values()) p.kill()

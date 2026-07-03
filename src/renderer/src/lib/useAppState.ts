@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { AppState } from '../../../shared/types'
+import { DEFAULT_CLAUDE_LAUNCH } from '../../../shared/types'
 
 const EMPTY: AppState = {
   folders: [],
@@ -7,7 +8,8 @@ const EMPTY: AppState = {
   activeFolderId: '',
   hooksInstalled: true,
   detachedFolderIds: [],
-  autoResumeSessions: false
+  autoResumeSessions: false,
+  claudeLaunch: DEFAULT_CLAUDE_LAUNCH
 }
 
 /** Состояние приложения из main: getState при старте + подписка на изменения */

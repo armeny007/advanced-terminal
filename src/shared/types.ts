@@ -55,6 +55,8 @@ export interface AppState {
   detachedFolderIds: string[]
   /** автоматически возобновлять привязанные Claude-сессии при запуске */
   autoResumeSessions: boolean
+  /** параметры по умолчанию для новой сессии Claude */
+  claudeLaunch: ClaudeLaunchOptions
 }
 
 /** Метаданные прошлой сессии из ~/.claude/projects/<dir>/<uuid>.jsonl */
@@ -97,6 +99,25 @@ export interface ProjectConfig {
 
 export type RunClaudeMode = 'new' | 'resume' | 'continue'
 
+/** Параметры запуска новой сессии Claude Code (окошко выбора флагов) */
+export interface ClaudeLaunchOptions {
+  chrome: boolean // --chrome
+  autoMode: boolean // --enable-auto-mode
+  skipPermissions: boolean // --dangerously-skip-permissions
+  verbose: boolean // --verbose
+  model: string // '' = по умолчанию, иначе opus/sonnet/haiku
+  custom: string // произвольные доп. аргументы
+}
+
+export const DEFAULT_CLAUDE_LAUNCH: ClaudeLaunchOptions = {
+  chrome: true,
+  autoMode: true,
+  skipPermissions: true,
+  verbose: false,
+  model: '',
+  custom: ''
+}
+
 /** Событие смены статуса Claude в терминале (main -> renderer) */
 export interface ClaudeStatusEvent {
   termId: string
@@ -135,7 +156,7 @@ export const IPC = {
   termRename: 'term:rename', // invoke (id, name)
   termMoveToFolder: 'term:moveToFolder', // invoke (id, folderId)
   termBindSession: 'term:bindSession', // invoke (id, sessionId | null)
-  termRunClaude: 'term:runClaude', // invoke (id, mode: RunClaudeMode, sessionId?)
+  termRunClaude: 'term:runClaude', // invoke (id, mode: RunClaudeMode, sessionId?, extraArgs?)
   termData: 'term:data', // on (id, data)
   termExit: 'term:exit', // on (id, exitCode)
 
@@ -149,6 +170,7 @@ export const IPC = {
   uiSetFocusedTerm: 'ui:setFocusedTerm', // send (id | null) — для подавления уведомлений
   uiRevealTerm: 'ui:revealTerm', // on (termId) — клик по уведомлению
   settingsSetAutoResume: 'settings:setAutoResume', // invoke (bool)
+  settingsSetClaudeLaunch: 'settings:setClaudeLaunch', // invoke (ClaudeLaunchOptions)
 
   // worktrees (V2)
   wtList: 'wt:list', // invoke (projectPath) => WorktreeInfo[]
@@ -185,7 +207,7 @@ export interface AdvTermApi {
   renameTerminal(id: string, name: string): Promise<void>
   moveTerminalToFolder(id: string, folderId: string): Promise<void>
   bindSession(id: string, sessionId: string | null): Promise<void>
-  runClaude(id: string, mode: RunClaudeMode, sessionId?: string): Promise<void>
+  runClaude(id: string, mode: RunClaudeMode, sessionId?: string, extraArgs?: string): Promise<void>
   onTermData(cb: (id: string, data: string) => void): () => void
   onTermExit(cb: (id: string, exitCode: number) => void): () => void
 
@@ -199,6 +221,7 @@ export interface AdvTermApi {
   setFocusedTerm(id: string | null): void
   onRevealTerm(cb: (termId: string) => void): () => void
   setAutoResumeSessions(v: boolean): Promise<void>
+  setClaudeLaunch(opts: ClaudeLaunchOptions): Promise<void>
 
   // worktrees (V2)
   listWorktrees(projectPath: string): Promise<WorktreeInfo[]>

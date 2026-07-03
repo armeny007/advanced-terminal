@@ -753,6 +753,45 @@ textarea:focus {
   font-size: 12px;
   color: var(--muted);
 }
+
+/* диалог флагов запуска Claude */
+.flag-row {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  cursor: pointer;
+}
+.flag-code {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 11px;
+  font-family: 'SF Mono', Menlo, monospace;
+}
+.flag-inline {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+}
+.flag-inline select {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  color: var(--text);
+}
+.cmd-preview {
+  display: block;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-family: 'SF Mono', Menlo, monospace;
+  font-size: 11px;
+  color: #94e2d5;
+  word-break: break-all;
+}
 .form-actions {
   display: flex;
   justify-content: flex-end;

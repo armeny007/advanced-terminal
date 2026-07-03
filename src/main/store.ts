@@ -4,7 +4,8 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'fs'
 import { randomUUID } from 'crypto'
 import { dirname, join } from 'path'
 import type { Store } from './contracts'
-import type { AppState, FolderInfo, ProjectConfig, TermInfo } from '../shared/types'
+import type { AppState, ClaudeLaunchOptions, FolderInfo, ProjectConfig, TermInfo } from '../shared/types'
+import { DEFAULT_CLAUDE_LAUNCH } from '../shared/types'
 
 /** Персистируемая часть состояния (hooksInstalled не сохраняется) */
 interface PersistedState {
@@ -13,6 +14,7 @@ interface PersistedState {
   activeFolderId: string
   projectConfigs: Record<string, ProjectConfig>
   autoResumeSessions: boolean
+  claudeLaunch: ClaudeLaunchOptions
 }
 
 const SAVE_DEBOUNCE_MS = 300
@@ -27,7 +29,14 @@ function defaultState(): PersistedState {
     { id: randomUUID(), name: 'Проекты', color: '#a6e3a1', icon: '🚀' },
     { id: randomUUID(), name: 'Общие вопросы', color: '#cba6f7', icon: '💬' }
   ]
-  return { folders: seed, terminals: [], activeFolderId: seed[0].id, projectConfigs: {}, autoResumeSessions: false }
+  return {
+    folders: seed,
+    terminals: [],
+    activeFolderId: seed[0].id,
+    projectConfigs: {},
+    autoResumeSessions: false,
+    claudeLaunch: { ...DEFAULT_CLAUDE_LAUNCH }
+  }
 }
 
 function loadState(file: string): PersistedState {
@@ -47,7 +56,8 @@ function loadState(file: string): PersistedState {
       terminals,
       activeFolderId,
       projectConfigs: raw.projectConfigs && typeof raw.projectConfigs === 'object' ? raw.projectConfigs : {},
-      autoResumeSessions: raw.autoResumeSessions === true
+      autoResumeSessions: raw.autoResumeSessions === true,
+      claudeLaunch: { ...DEFAULT_CLAUDE_LAUNCH, ...(raw.claudeLaunch ?? {}) }
     }
   } catch {
     return defaultState()
@@ -64,7 +74,8 @@ export function createStore(): Store {
     activeFolderId: persisted.activeFolderId,
     hooksInstalled: false,
     detachedFolderIds: [],
-    autoResumeSessions: persisted.autoResumeSessions
+    autoResumeSessions: persisted.autoResumeSessions,
+    claudeLaunch: persisted.claudeLaunch
   }
   const projectConfigs = persisted.projectConfigs
 
@@ -81,7 +92,8 @@ export function createStore(): Store {
       terminals: state.terminals,
       activeFolderId: state.activeFolderId,
       projectConfigs,
-      autoResumeSessions: state.autoResumeSessions
+      autoResumeSessions: state.autoResumeSessions,
+      claudeLaunch: state.claudeLaunch
     }
     try {
       mkdirSync(dirname(file), { recursive: true })
@@ -186,6 +198,10 @@ export function createStore(): Store {
     setAutoResumeSessions: (v) => {
       if (state.autoResumeSessions === v) return
       state.autoResumeSessions = v
+      commit()
+    },
+    setClaudeLaunch: (opts) => {
+      state.claudeLaunch = opts
       commit()
     },
 

@@ -13,6 +13,7 @@ export function Folder({
   onNewTerminal,
   onNewInFolder,
   onNewWorktree,
+  onNewClaudeSession,
   onOpenSessions,
   onWorktreeDiff
 }: {
@@ -24,6 +25,7 @@ export function Folder({
   onNewTerminal: () => void
   onNewInFolder: () => void
   onNewWorktree: () => void
+  onNewClaudeSession: (term: TermInfo) => void
   onOpenSessions: (bindTermId: string, cwd: string) => void
   onWorktreeDiff: (term: TermInfo) => void
 }): React.JSX.Element {
@@ -98,6 +100,7 @@ export function Folder({
               hidden={effMax != null && t.id !== effMax}
               maximized={t.id === effMax}
               onToggleMaximize={() => setMaximizedId((prev) => (prev === t.id ? null : t.id))}
+              onNewClaudeSession={onNewClaudeSession}
               onOpenSessions={onOpenSessions}
               onWorktreeDiff={onWorktreeDiff}
             />

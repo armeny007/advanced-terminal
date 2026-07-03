@@ -11,6 +11,7 @@ import { GlobalSearch } from './components/GlobalSearch'
 import type { SearchResult } from './components/GlobalSearch'
 import { WorktreeDialog } from './components/WorktreeDialog'
 import { DiffModal } from './components/DiffModal'
+import { ClaudeFlagsDialog, buildClaudeArgs } from './components/ClaudeFlagsDialog'
 import { PromptModal } from './lib/ui'
 
 type Modal =
@@ -18,6 +19,7 @@ type Modal =
   | { type: 'worktree' }
   | { type: 'diff'; term: TermInfo }
   | { type: 'folderPath' }
+  | { type: 'claudeNew'; term: TermInfo }
   | null
 
 /** soloFolderId задан у окна отдельной папки (режим одной папки без вкладок) */
@@ -147,6 +149,7 @@ export default function App({ soloFolderId }: { soloFolderId?: string }): React.
         onNewTerminal={() => newTerminal()}
         onNewInFolder={() => setModal({ type: 'folderPath' })}
         onNewWorktree={() => setModal({ type: 'worktree' })}
+        onNewClaudeSession={(term) => setModal({ type: 'claudeNew', term })}
         onOpenSessions={openSessions}
         onWorktreeDiff={(term) => setModal({ type: 'diff', term })}
       />
@@ -287,6 +290,17 @@ export default function App({ soloFolderId }: { soloFolderId?: string }): React.
           placeholder="/путь/к/папке"
           initial={lastCwd}
           onSubmit={(dir) => newTerminal(dir)}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {modal?.type === 'claudeNew' && (
+        <ClaudeFlagsDialog
+          initial={state.claudeLaunch}
+          onLaunch={(opts) => {
+            window.api.setClaudeLaunch(opts)
+            window.api.runClaude(modal.term.id, 'new', undefined, buildClaudeArgs(opts))
+            setModal(null)
+          }}
           onClose={() => setModal(null)}
         />
       )}

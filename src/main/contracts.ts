@@ -1,6 +1,7 @@
 // Интерфейсы модулей main-процесса. Реализации: store.ts (Store), pty.ts (PtyManager).
 import type {
   AppState,
+  ClaudeLaunchOptions,
   FolderInfo,
   FolderPatch,
   ProjectConfig,
@@ -27,6 +28,7 @@ export interface Store {
   setHooksInstalled(v: boolean): void
   setFolderDetached(id: string, detached: boolean): void
   setAutoResumeSessions(v: boolean): void
+  setClaudeLaunch(opts: ClaudeLaunchOptions): void
 
   getProjectConfig(projectPath: string): ProjectConfig
   setProjectConfig(cfg: ProjectConfig): void
