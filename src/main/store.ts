@@ -60,7 +60,8 @@ export function createStore(): Store {
     folders: persisted.folders,
     terminals: persisted.terminals,
     activeFolderId: persisted.activeFolderId,
-    hooksInstalled: false
+    hooksInstalled: false,
+    detachedFolderIds: []
   }
   const projectConfigs = persisted.projectConfigs
 
@@ -169,6 +170,13 @@ export function createStore(): Store {
 
     setHooksInstalled: (v) => {
       state.hooksInstalled = v
+      emit() // не персистится
+    },
+    setFolderDetached: (id, detached) => {
+      const has = state.detachedFolderIds.includes(id)
+      if (detached && !has) state.detachedFolderIds = [...state.detachedFolderIds, id]
+      else if (!detached && has) state.detachedFolderIds = state.detachedFolderIds.filter((x) => x !== id)
+      else return
       emit() // не персистится
     },
 

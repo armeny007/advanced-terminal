@@ -22,6 +22,8 @@ const api: AdvTermApi = {
   updateFolder: (id, patch) => ipcRenderer.invoke(IPC.folderUpdate, id, patch),
   deleteFolder: (id) => ipcRenderer.invoke(IPC.folderDelete, id),
   setActiveFolder: (id) => ipcRenderer.invoke(IPC.folderSetActive, id),
+  detachFolder: (id) => ipcRenderer.invoke(IPC.folderDetach, id),
+  attachFolder: (id) => ipcRenderer.invoke(IPC.folderAttach, id),
 
   // терминалы
   createTerminal: (opts) => ipcRenderer.invoke(IPC.termCreate, opts),

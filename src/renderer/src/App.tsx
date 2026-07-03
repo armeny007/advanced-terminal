@@ -18,7 +18,9 @@ type Modal =
   | { type: 'diff'; term: TermInfo }
   | null
 
-export default function App(): React.JSX.Element {
+/** soloFolderId задан у окна отдельной папки (режим одной папки без вкладок) */
+export default function App({ soloFolderId }: { soloFolderId?: string }): React.JSX.Element {
+  const solo = soloFolderId != null
   const state = useAppState()
   const [view, setView] = useState<'grid' | 'dashboard'>('grid')
   const [modal, setModal] = useState<Modal>(null)
@@ -30,23 +32,36 @@ export default function App(): React.JSX.Element {
 
   useEffect(() => bus.start(), [])
 
-  // кэш сессий для глобального поиска
   useEffect(() => {
     window.api.listClaudeSessions().then((s) => (sessionsCache.current = s))
   }, [])
 
+  // В главном окне не показываем вынесенные папки; окно отдельной папки — только её.
+  const soloFolder = solo ? state.folders.find((f) => f.id === soloFolderId) : undefined
+  const visibleFolders = solo
+    ? soloFolder
+      ? [soloFolder]
+      : []
+    : state.folders.filter((f) => !state.detachedFolderIds.includes(f.id))
+  const activeId = solo
+    ? soloFolderId!
+    : state.detachedFolderIds.includes(state.activeFolderId)
+      ? (visibleFolders[0]?.id ?? state.activeFolderId)
+      : state.activeFolderId
+  const effectiveFolderId = solo ? soloFolderId! : state.activeFolderId
+
   const revealTerm = useCallback(
     (term: TermInfo) => {
+      if (solo && term.folderId !== soloFolderId) return
       setView('grid')
-      window.api.setActiveFolder(term.folderId)
+      if (!solo) window.api.setActiveFolder(term.folderId)
       setHighlight(term.id)
       setTimeout(() => bus.focus(term.id), 120)
       setTimeout(() => setHighlight(null), 1500)
     },
-    []
+    [solo, soloFolderId]
   )
 
-  // клик по системному уведомлению
   useEffect(() => {
     return window.api.onRevealTerm((termId) => {
       const t = state.terminals.find((x) => x.id === termId)
@@ -56,15 +71,14 @@ export default function App(): React.JSX.Element {
 
   const newTerminal = useCallback(
     (cwd?: string) => {
-      window.api.createTerminal({ folderId: state.activeFolderId, cwd })
+      window.api.createTerminal({ folderId: effectiveFolderId, cwd })
     },
-    [state.activeFolderId]
+    [effectiveFolderId]
   )
 
-  // горячие клавиши
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      if (!solo && (e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault()
         setSearchOpen(true)
         ;(document.querySelector('.global-search') as HTMLInputElement | null)?.focus()
@@ -76,7 +90,7 @@ export default function App(): React.JSX.Element {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [newTerminal])
+  }, [newTerminal, solo])
 
   const pickSearch = (r: SearchResult): void => {
     setSearch('')
@@ -87,32 +101,77 @@ export default function App(): React.JSX.Element {
       window.api.setActiveFolder(r.folderId)
     } else if (r.kind === 'session' && r.session) {
       const s = r.session
-      window.api.createTerminal({ folderId: state.activeFolderId, cwd: s.projectPath, name: basename(s.projectPath) }).then((t) => window.api.runClaude(t.id, 'resume', s.sessionId))
+      window.api
+        .createTerminal({ folderId: effectiveFolderId, cwd: s.projectPath, name: basename(s.projectPath) })
+        .then((t) => window.api.runClaude(t.id, 'resume', s.sessionId))
     }
   }
 
   const openSessions = (bindTermId: string, cwd: string): void =>
     setModal({ type: 'sessions', bindTermId, filterCwd: cwd })
 
-  const lastCwd =
-    state.terminals.length > 0 ? state.terminals[state.terminals.length - 1].cwd : ''
+  const lastCwd = state.terminals.length > 0 ? state.terminals[state.terminals.length - 1].cwd : ''
+
+  const renderFolder = (folderId: string): React.JSX.Element | null => {
+    const f = visibleFolders.find((x) => x.id === folderId)
+    if (!f) return null
+    return (
+      <Folder
+        key={f.id}
+        folder={f}
+        terminals={state.terminals.filter((t) => t.folderId === f.id)}
+        allFolders={state.folders}
+        active={f.id === activeId}
+        highlightTermId={highlight}
+        onNewTerminal={() => newTerminal()}
+        onNewInFolder={() => {
+          const dir = window.prompt('Путь к папке', lastCwd || undefined)
+          if (dir) newTerminal(dir)
+        }}
+        onNewWorktree={() => setModal({ type: 'worktree' })}
+        onOpenSessions={openSessions}
+        onWorktreeDiff={(term) => setModal({ type: 'diff', term })}
+      />
+    )
+  }
 
   return (
     <div className="app">
-      <TopBar
-        state={state}
-        view={view}
-        onSetView={setView}
-        onOpenSessions={() => setModal({ type: 'sessions', bindTermId: null, filterCwd: null })}
-        search={search}
-        onSearchChange={(v) => {
-          setSearch(v)
-          setSearchOpen(true)
-        }}
-        onSearchFocus={() => setSearchOpen(true)}
-      />
+      {solo ? (
+        <div className="topbar solo-topbar">
+          <span className="solo-title">
+            {soloFolder?.icon && <span className="tab-icon">{soloFolder.icon}</span>}
+            <span
+              className="solo-dot"
+              style={{ background: soloFolder?.color || '#6c7086' }}
+            />
+            {soloFolder?.name ?? 'Папка'}
+          </span>
+          <div className="topbar-right">
+            <button className="btn primary" onClick={() => newTerminal()}>
+              + Терминал
+            </button>
+            <button className="btn" onClick={() => window.api.attachFolder(soloFolderId!)}>
+              ⧉ Вернуть в главное окно
+            </button>
+          </div>
+        </div>
+      ) : (
+        <TopBar
+          state={state}
+          view={view}
+          onSetView={setView}
+          onOpenSessions={() => setModal({ type: 'sessions', bindTermId: null, filterCwd: null })}
+          search={search}
+          onSearchChange={(v) => {
+            setSearch(v)
+            setSearchOpen(true)
+          }}
+          onSearchFocus={() => setSearchOpen(true)}
+        />
+      )}
 
-      {searchOpen && search.trim() && (
+      {!solo && searchOpen && search.trim() && (
         <GlobalSearch
           query={search}
           state={state}
@@ -122,11 +181,9 @@ export default function App(): React.JSX.Element {
         />
       )}
 
-      {!state.hooksInstalled && !hooksDismissed && (
+      {!solo && !state.hooksInstalled && !hooksDismissed && (
         <div className="hooks-banner">
-          <span>
-            Для индикаторов статуса Claude Code нужно установить hooks в ~/.claude/settings.json
-          </span>
+          <span>Для индикаторов статуса Claude Code нужно установить hooks в ~/.claude/settings.json</span>
           <button
             className="btn small"
             onClick={async () => {
@@ -143,27 +200,18 @@ export default function App(): React.JSX.Element {
       )}
 
       <div className="content">
-        {view === 'dashboard' ? (
+        {solo ? (
+          soloFolder ? (
+            renderFolder(soloFolderId!)
+          ) : (
+            <div className="empty">
+              <p>Папка закрыта</p>
+            </div>
+          )
+        ) : view === 'dashboard' ? (
           <Dashboard state={state} onOpenTerm={revealTerm} />
         ) : (
-          state.folders.map((p) => (
-            <Folder
-              key={p.id}
-              folder={p}
-              terminals={state.terminals.filter((t) => t.folderId === p.id)}
-              allFolders={state.folders}
-              active={p.id === state.activeFolderId}
-              highlightTermId={highlight}
-              onNewTerminal={() => newTerminal()}
-              onNewInFolder={() => {
-                const dir = window.prompt('Путь к папке', lastCwd || undefined)
-                if (dir) newTerminal(dir)
-              }}
-              onNewWorktree={() => setModal({ type: 'worktree' })}
-              onOpenSessions={openSessions}
-              onWorktreeDiff={(term) => setModal({ type: 'diff', term })}
-            />
-          ))
+          visibleFolders.map((p) => renderFolder(p.id))
         )}
       </div>
 
@@ -171,7 +219,7 @@ export default function App(): React.JSX.Element {
         <SessionsBrowser
           bindTermId={modal.bindTermId}
           filterCwd={modal.filterCwd}
-          activeFolderId={state.activeFolderId}
+          activeFolderId={effectiveFolderId}
           onClose={() => setModal(null)}
           onSessionsLoaded={(s) => (sessionsCache.current = s)}
         />
@@ -179,13 +227,11 @@ export default function App(): React.JSX.Element {
       {modal?.type === 'worktree' && (
         <WorktreeDialog
           defaultProjectPath={lastCwd}
-          activeFolderId={state.activeFolderId}
+          activeFolderId={effectiveFolderId}
           onClose={() => setModal(null)}
         />
       )}
-      {modal?.type === 'diff' && (
-        <DiffModal term={modal.term} onClose={() => setModal(null)} />
-      )}
+      {modal?.type === 'diff' && <DiffModal term={modal.term} onClose={() => setModal(null)} />}
     </div>
   )
 }

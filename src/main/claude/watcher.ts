@@ -126,6 +126,6 @@ async function processFile(store: Store, fileName: string): Promise<void> {
 
   const completed = hookEvent === 'Stop' && prev === 'working'
   if (status === 'needs_input' || status === 'permission' || completed) {
-    notifyStatus(termId, term.name, status, ev.message)
+    notifyStatus(store, termId, term.name, status, ev.message)
   }
 }

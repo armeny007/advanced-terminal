@@ -65,6 +65,15 @@ function FolderEditPopover({
         </button>
       </div>
       <button
+        className="btn small folder-detach-btn"
+        onClick={() => {
+          window.api.detachFolder(folder.id)
+          onClose()
+        }}
+      >
+        ⧉ Открыть в новом окне
+      </button>
+      <button
         className="btn small folder-delete-btn"
         onClick={() => {
           if (window.confirm(`Удалить папку «${folder.name}»? Терминалы перейдут в первую папку.`)) {
@@ -196,7 +205,9 @@ export function TopBar({
   return (
     <div className="topbar">
       <div className="tabs">
-        {state.folders.map((p) => (
+        {state.folders
+          .filter((p) => !state.detachedFolderIds.includes(p.id))
+          .map((p) => (
           <FolderTab
             key={p.id}
             folder={p}

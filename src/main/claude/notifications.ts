@@ -2,7 +2,8 @@
 import { Notification } from 'electron'
 import type { ClaudeStatus } from '../../shared/types'
 import { IPC } from '../../shared/types'
-import { runtime, send } from '../runtime'
+import type { Store } from '../contracts'
+import { isAnyWindowFocused, runtime, send, windowForFolder } from '../runtime'
 
 const DEFAULT_BODY: Partial<Record<ClaudeStatus, string>> = {
   needs_input: 'Ждёт ввода',
@@ -11,13 +12,14 @@ const DEFAULT_BODY: Partial<Record<ClaudeStatus, string>> = {
 }
 
 export function notifyStatus(
+  store: Store,
   termId: string,
   termName: string,
   status: ClaudeStatus,
   message?: string
 ): void {
   // пользователь и так смотрит на этот терминал — не беспокоим
-  if (runtime.win?.isFocused() && runtime.focusedTermId === termId) return
+  if (isAnyWindowFocused() && runtime.focusedTermId === termId) return
   if (!Notification.isSupported()) return
 
   const n = new Notification({
@@ -25,8 +27,11 @@ export function notifyStatus(
     body: message || DEFAULT_BODY[status] || ''
   })
   n.on('click', () => {
-    runtime.win?.show()
-    runtime.win?.focus()
+    // сфокусировать окно, которому принадлежит папка терминала
+    const term = store.getTerminal(termId)
+    const win = term ? windowForFolder(term.folderId) : runtime.mainWin
+    win?.show()
+    win?.focus()
     send(IPC.uiRevealTerm, termId)
   })
   n.show()

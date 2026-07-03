@@ -240,12 +240,37 @@ textarea:focus {
 .emoji.active {
   border-color: var(--accent);
 }
+.folder-detach-btn {
+  border-color: var(--border);
+}
+.folder-detach-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
 .folder-delete-btn {
   color: var(--danger);
   border-color: var(--border);
 }
 .folder-delete-btn:hover {
   background: rgba(243, 139, 168, 0.12);
+}
+
+/* ---- окно отдельной папки ---- */
+.solo-topbar {
+  justify-content: space-between;
+}
+.solo-title {
+  -webkit-app-region: no-drag;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 14px;
+}
+.solo-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
 }
 .tab-edit {
   width: 110px;

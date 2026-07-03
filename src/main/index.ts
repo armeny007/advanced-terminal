@@ -1,9 +1,9 @@
 import { app, BrowserWindow, ipcMain, nativeImage } from 'electron'
 import { join } from 'path'
-import { runtime } from './runtime'
 import { createStore } from './store'
 import { initPty } from './pty'
 import { initClaude } from './claude'
+import { createMainWindow, initWindows } from './windows'
 
 // В dev-режиме иконка дока — стандартная иконка Electron; подменяем её нашей.
 // В упакованном приложении иконку задаёт .icns из бандла.
@@ -13,40 +13,18 @@ function setDevDockIcon(): void {
   if (!img.isEmpty()) app.dock?.setIcon(img)
 }
 
-function createWindow(): BrowserWindow {
-  const win = new BrowserWindow({
-    width: 1440,
-    height: 900,
-    minWidth: 900,
-    minHeight: 600,
-    title: 'Advanced Terminal',
-    backgroundColor: '#11111b',
-    titleBarStyle: 'hiddenInset',
-    webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      contextIsolation: true,
-      nodeIntegration: false
-    }
-  })
-  if (process.env['ELECTRON_RENDERER_URL']) {
-    win.loadURL(process.env['ELECTRON_RENDERER_URL'])
-  } else {
-    win.loadFile(join(__dirname, '../renderer/index.html'))
-  }
-  return win
-}
-
 app.whenReady().then(() => {
   setDevDockIcon()
   const store = createStore()
-  runtime.win = createWindow()
+  createMainWindow()
 
   const ptyManager = initPty(ipcMain, store)
   initClaude(ipcMain, store, ptyManager)
+  initWindows(ipcMain, store)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      runtime.win = createWindow()
+      createMainWindow()
     }
   })
 })

@@ -25,6 +25,7 @@ export interface Store {
   findTerminalBySession(sessionId: string): TermInfo | undefined
 
   setHooksInstalled(v: boolean): void
+  setFolderDetached(id: string, detached: boolean): void
 
   getProjectConfig(projectPath: string): ProjectConfig
   setProjectConfig(cfg: ProjectConfig): void

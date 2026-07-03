@@ -51,6 +51,8 @@ export interface AppState {
   activeFolderId: string
   /** установлены ли hooks Claude Code (проверяется при старте) */
   hooksInstalled: boolean
+  /** id папок, вынесенных в отдельные окна (не персистится) */
+  detachedFolderIds: string[]
 }
 
 /** Метаданные прошлой сессии из ~/.claude/projects/<dir>/<uuid>.jsonl */
@@ -119,6 +121,8 @@ export const IPC = {
   folderUpdate: 'folder:update', // invoke (id, FolderPatch) — имя/цвет/иконка
   folderDelete: 'folder:delete', // invoke (id) — терминалы переносятся на первую папку
   folderSetActive: 'folder:setActive', // invoke (id)
+  folderDetach: 'folder:detach', // invoke (id) — вынести папку в отдельное окно
+  folderAttach: 'folder:attach', // invoke (id) — вернуть папку в главное окно
 
   // терминалы
   termCreate: 'term:create', // invoke ({folderId, cwd?, name?}) => TermInfo
@@ -166,6 +170,8 @@ export interface AdvTermApi {
   updateFolder(id: string, patch: FolderPatch): Promise<void>
   deleteFolder(id: string): Promise<void>
   setActiveFolder(id: string): Promise<void>
+  detachFolder(id: string): Promise<void>
+  attachFolder(id: string): Promise<void>
 
   // терминалы
   createTerminal(opts: { folderId: string; cwd?: string; name?: string }): Promise<TermInfo>

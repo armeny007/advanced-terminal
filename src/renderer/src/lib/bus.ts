@@ -29,7 +29,12 @@ class TermDataBus {
     window.api.onTermData((id, data) => {
       const e = this.ensure(id)
       if (e.term) e.term.write(data)
-      else e.buffer.push(data)
+      else {
+        // данные до монтирования xterm буферизуем; в окне отдельной папки
+        // приходят данные и чужих терминалов — ограничиваем буфер, чтобы не течь
+        e.buffer.push(data)
+        if (e.buffer.length > 400) e.buffer.splice(0, e.buffer.length - 400)
+      }
     })
   }
 
