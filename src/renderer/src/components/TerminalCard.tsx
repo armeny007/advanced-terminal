@@ -48,6 +48,9 @@ export function TerminalCard({
   folders,
   isActiveFolder,
   highlighted,
+  hidden = false,
+  maximized = false,
+  onToggleMaximize,
   onOpenSessions,
   onWorktreeDiff
 }: {
@@ -55,6 +58,9 @@ export function TerminalCard({
   folders: FolderInfo[]
   isActiveFolder: boolean
   highlighted: boolean
+  hidden?: boolean
+  maximized?: boolean
+  onToggleMaximize?: () => void
   onOpenSessions: (bindTermId: string, cwd: string) => void
   onWorktreeDiff: (term: TermInfo) => void
 }): React.JSX.Element {
@@ -65,6 +71,8 @@ export function TerminalCard({
   const [searchText, setSearchText] = useState('')
   const [usageOpen, setUsageOpen] = useState(false)
   const [exited, setExited] = useState(!term.alive)
+  const [editingName, setEditingName] = useState(false)
+  const [nameVal, setNameVal] = useState(term.name)
 
   // xterm живёт всё время существования терминала (создание/уничтожение — один раз)
   useEffect(() => {
@@ -151,9 +159,28 @@ export function TerminalCard({
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  const rename = (): void => {
-    const name = window.prompt('Имя терминала', term.name)
-    if (name && name.trim()) window.api.renameTerminal(term.id, name.trim())
+  // подогнать размер при появлении (выход из скрытого/развёрнутого состояния)
+  useEffect(() => {
+    if (hidden) return
+    const el = bodyRef.current
+    const fit = fitRef.current
+    if (!el || !fit) return
+    const id = requestAnimationFrame(() => {
+      const d = safeFit(fit, el)
+      if (d) window.api.resizeTerminal(term.id, d.cols, d.rows)
+    })
+    return () => cancelAnimationFrame(id)
+  }, [hidden, maximized, term.id])
+
+  // window.prompt в Electron не поддерживается — переименование через инлайн-поле
+  const startRename = (): void => {
+    setNameVal(term.name)
+    setEditingName(true)
+  }
+  const commitRename = (): void => {
+    setEditingName(false)
+    const v = nameVal.trim()
+    if (v && v !== term.name) window.api.renameTerminal(term.id, v)
   }
 
   const claudeItems: MenuItem[] = [
@@ -172,6 +199,7 @@ export function TerminalCard({
     .map((p) => ({ label: p.name, onClick: () => window.api.moveTerminalToFolder(term.id, p.id) }))
 
   const actionItems: MenuItem[] = [
+    { label: 'Переименовать', onClick: startRename },
     { label: 'Переместить в папку', submenu: moveItems.length ? moveItems : [{ label: '(нет других)', disabled: true }] },
     { label: 'Привязать сессию…', onClick: () => onOpenSessions(term.id, term.cwd) },
     ...(term.worktree
@@ -204,16 +232,33 @@ export function TerminalCard({
   }
 
   return (
-    <div className={`term-card ${highlighted ? 'highlight' : ''}`}>
+    <div
+      className={`term-card ${highlighted ? 'highlight' : ''} ${maximized ? 'maximized' : ''}`}
+      style={hidden ? { display: 'none' } : undefined}
+    >
       <div className="term-head">
         <span
           className={`dot ${statusPulses(term.status) ? 'pulse' : ''}`}
           style={{ background: STATUS_COLOR[term.status] }}
           title={STATUS_LABEL[term.status]}
         />
-        <span className="term-name" onDoubleClick={rename} title="Двойной клик — переименовать">
-          {term.name}
-        </span>
+        {editingName ? (
+          <input
+            autoFocus
+            className="term-name-edit"
+            value={nameVal}
+            onChange={(e) => setNameVal(e.target.value)}
+            onBlur={commitRename}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitRename()
+              if (e.key === 'Escape') setEditingName(false)
+            }}
+          />
+        ) : (
+          <span className="term-name" onDoubleClick={startRename} title="Двойной клик — переименовать">
+            {term.name}
+          </span>
+        )}
         <span className="term-cwd">{shortenPath(term.cwd)}</span>
         {term.worktree && <span className="badge wt-badge">⑂ {term.worktree.branch}</span>}
         {term.claudeSessionId && (
@@ -246,6 +291,15 @@ export function TerminalCard({
               />
             )}
           </div>
+          {onToggleMaximize && (
+            <button
+              className="icon-btn"
+              title={maximized ? 'Свернуть (плитка)' : 'Развернуть на всю папку'}
+              onClick={onToggleMaximize}
+            >
+              {maximized ? '🗗' : '🗖'}
+            </button>
+          )}
           <Menu
             align="right"
             trigger={(_o, toggle) => (

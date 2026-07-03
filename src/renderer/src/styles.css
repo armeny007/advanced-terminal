@@ -407,6 +407,45 @@ textarea:focus {
   font-weight: 600;
   cursor: default;
 }
+.term-name-edit {
+  font-weight: 600;
+  width: 150px;
+  padding: 2px 6px;
+}
+
+/* свёрнутые терминалы в верхней строке (режим разворота) */
+.folder-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 6px;
+  overflow-x: auto;
+  min-width: 0;
+  flex: 1;
+}
+.folder-chips::-webkit-scrollbar {
+  height: 0;
+}
+.chip-tile {
+  flex-shrink: 0;
+}
+.term-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+  transition: border-color 120ms, background 120ms;
+}
+.term-chip:hover {
+  border-color: var(--accent);
+  background: #262636;
+}
 .term-cwd {
   color: var(--muted);
   font-size: 11px;
@@ -476,11 +515,13 @@ textarea:focus {
   position: relative;
   min-height: 0;
   background: #181825;
+  /* отступ здесь, а НЕ на .term-body: xterm-хост без padding, иначе FitAddon
+     считает лишнюю строку и нижняя строка ввода периодически обрезается */
+  padding: 4px 6px;
 }
 .term-body {
   position: absolute;
   inset: 0;
-  padding: 4px 6px;
 }
 .term-overlay {
   position: absolute;

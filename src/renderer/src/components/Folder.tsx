@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import type { FolderInfo, TermInfo } from '../../../shared/types'
 import { Menu } from '../lib/ui'
+import { STATUS_COLOR, STATUS_LABEL, statusPulses } from '../lib/status'
 import { TerminalCard } from './TerminalCard'
 
 export function Folder({
@@ -25,7 +27,12 @@ export function Folder({
   onOpenSessions: (bindTermId: string, cwd: string) => void
   onWorktreeDiff: (term: TermInfo) => void
 }): React.JSX.Element {
-  const cols = terminals.length <= 1 ? 1 : terminals.length <= 4 ? 2 : 3
+  const [maximizedId, setMaximizedId] = useState<string | null>(null)
+  // развёрнутый терминал мог быть закрыт/перемещён — сбрасываем
+  const maxTerm = terminals.find((t) => t.id === maximizedId)
+  const effMax = maxTerm ? maximizedId : null
+
+  const cols = effMax ? 1 : terminals.length <= 1 ? 1 : terminals.length <= 4 ? 2 : 3
 
   return (
     <div className="folder" style={{ display: active ? 'flex' : 'none' }}>
@@ -44,6 +51,30 @@ export function Folder({
             { label: 'Терминал в worktree…', onClick: onNewWorktree }
           ]}
         />
+        {/* в режиме разворота — свёрнутые терминалы как названия в верхней строке */}
+        {effMax && (
+          <div className="folder-chips">
+            <button className="btn small chip-tile" title="Показать все (плитка)" onClick={() => setMaximizedId(null)}>
+              ▦ Плитка
+            </button>
+            {terminals
+              .filter((t) => t.id !== effMax)
+              .map((t) => (
+                <button
+                  key={t.id}
+                  className="term-chip"
+                  title={`${t.name} — ${STATUS_LABEL[t.status]}`}
+                  onClick={() => setMaximizedId(t.id)}
+                >
+                  <span
+                    className={`dot ${statusPulses(t.status) ? 'pulse' : ''}`}
+                    style={{ background: STATUS_COLOR[t.status] }}
+                  />
+                  {t.name}
+                </button>
+              ))}
+          </div>
+        )}
         <span className="spacer" />
         <span className="muted small">{terminals.length} терм.</span>
       </div>
@@ -64,6 +95,9 @@ export function Folder({
               folders={allFolders}
               isActiveFolder={active}
               highlighted={highlightTermId === t.id}
+              hidden={effMax != null && t.id !== effMax}
+              maximized={t.id === effMax}
+              onToggleMaximize={() => setMaximizedId((prev) => (prev === t.id ? null : t.id))}
               onOpenSessions={onOpenSessions}
               onWorktreeDiff={onWorktreeDiff}
             />

@@ -11,11 +11,13 @@ import { GlobalSearch } from './components/GlobalSearch'
 import type { SearchResult } from './components/GlobalSearch'
 import { WorktreeDialog } from './components/WorktreeDialog'
 import { DiffModal } from './components/DiffModal'
+import { PromptModal } from './lib/ui'
 
 type Modal =
   | { type: 'sessions'; bindTermId: string | null; filterCwd: string | null }
   | { type: 'worktree' }
   | { type: 'diff'; term: TermInfo }
+  | { type: 'folderPath' }
   | null
 
 /** soloFolderId задан у окна отдельной папки (режим одной папки без вкладок) */
@@ -143,10 +145,7 @@ export default function App({ soloFolderId }: { soloFolderId?: string }): React.
         active={f.id === activeId}
         highlightTermId={highlight}
         onNewTerminal={() => newTerminal()}
-        onNewInFolder={() => {
-          const dir = window.prompt('Путь к папке', lastCwd || undefined)
-          if (dir) newTerminal(dir)
-        }}
+        onNewInFolder={() => setModal({ type: 'folderPath' })}
         onNewWorktree={() => setModal({ type: 'worktree' })}
         onOpenSessions={openSessions}
         onWorktreeDiff={(term) => setModal({ type: 'diff', term })}
@@ -282,6 +281,15 @@ export default function App({ soloFolderId }: { soloFolderId?: string }): React.
         />
       )}
       {modal?.type === 'diff' && <DiffModal term={modal.term} onClose={() => setModal(null)} />}
+      {modal?.type === 'folderPath' && (
+        <PromptModal
+          title="Новый терминал в папке"
+          placeholder="/путь/к/папке"
+          initial={lastCwd}
+          onSubmit={(dir) => newTerminal(dir)}
+          onClose={() => setModal(null)}
+        />
+      )}
     </div>
   )
 }

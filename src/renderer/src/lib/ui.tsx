@@ -92,6 +92,55 @@ function MenuRow({ item, onClose }: { item: MenuItem; onClose: () => void }): Re
   )
 }
 
+/** Простой ввод строки (замена window.prompt, который в Electron не работает) */
+export function PromptModal({
+  title,
+  placeholder,
+  initial = '',
+  onSubmit,
+  onClose
+}: {
+  title: string
+  placeholder?: string
+  initial?: string
+  onSubmit: (value: string) => void
+  onClose: () => void
+}): React.JSX.Element {
+  const [val, setVal] = useState(initial)
+  const submit = (): void => {
+    const v = val.trim()
+    if (v) onSubmit(v)
+    onClose()
+  }
+  return (
+    <Modal onClose={onClose} width="440px">
+      <div className="modal-head">
+        <h3>{title}</h3>
+      </div>
+      <div className="modal-body form">
+        <input
+          autoFocus
+          value={val}
+          placeholder={placeholder}
+          onChange={(e) => setVal(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') submit()
+            if (e.key === 'Escape') onClose()
+          }}
+        />
+        <div className="form-actions">
+          <button className="btn" onClick={onClose}>
+            Отмена
+          </button>
+          <button className="btn primary" onClick={submit}>
+            ОК
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
 /** Модальное окно с затемнением, закрытие по фону/Esc */
 export function Modal({
   onClose,
