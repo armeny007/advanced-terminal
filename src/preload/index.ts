@@ -16,11 +16,12 @@ const api: AdvTermApi = {
   getState: () => ipcRenderer.invoke(IPC.stateGet),
   onStateChanged: (cb) => on(IPC.stateChanged, cb as never),
 
-  // страницы
-  createPage: (name) => ipcRenderer.invoke(IPC.pageCreate, name),
-  renamePage: (id, name) => ipcRenderer.invoke(IPC.pageRename, id, name),
-  deletePage: (id) => ipcRenderer.invoke(IPC.pageDelete, id),
-  setActivePage: (id) => ipcRenderer.invoke(IPC.pageSetActive, id),
+  // папки
+  createFolder: (name) => ipcRenderer.invoke(IPC.folderCreate, name),
+  renameFolder: (id, name) => ipcRenderer.invoke(IPC.folderRename, id, name),
+  updateFolder: (id, patch) => ipcRenderer.invoke(IPC.folderUpdate, id, patch),
+  deleteFolder: (id) => ipcRenderer.invoke(IPC.folderDelete, id),
+  setActiveFolder: (id) => ipcRenderer.invoke(IPC.folderSetActive, id),
 
   // терминалы
   createTerminal: (opts) => ipcRenderer.invoke(IPC.termCreate, opts),
@@ -29,7 +30,7 @@ const api: AdvTermApi = {
   closeTerminal: (id) => ipcRenderer.invoke(IPC.termClose, id),
   restartTerminal: (id) => ipcRenderer.invoke(IPC.termRestart, id),
   renameTerminal: (id, name) => ipcRenderer.invoke(IPC.termRename, id, name),
-  moveTerminalToPage: (id, pageId) => ipcRenderer.invoke(IPC.termMoveToPage, id, pageId),
+  moveTerminalToFolder: (id, folderId) => ipcRenderer.invoke(IPC.termMoveToFolder, id, folderId),
   bindSession: (id, sessionId) => ipcRenderer.invoke(IPC.termBindSession, id, sessionId),
   runClaude: (id, mode, sessionId) => ipcRenderer.invoke(IPC.termRunClaude, id, mode, sessionId),
   onTermData: (cb) => on(IPC.termData, cb as never),

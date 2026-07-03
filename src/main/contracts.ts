@@ -1,14 +1,22 @@
 // Интерфейсы модулей main-процесса. Реализации: store.ts (Store), pty.ts (PtyManager).
-import type { AppState, PageInfo, ProjectConfig, TermInfo, WorktreeBinding } from '../shared/types'
+import type {
+  AppState,
+  FolderInfo,
+  FolderPatch,
+  ProjectConfig,
+  TermInfo,
+  WorktreeBinding
+} from '../shared/types'
 
 export interface Store {
   getState(): AppState
 
-  addPage(p: PageInfo): void
-  renamePage(id: string, name: string): void
-  /** терминалы удаляемой страницы переносятся на первую оставшуюся */
-  deletePage(id: string): void
-  setActivePage(id: string): void
+  addFolder(p: FolderInfo): void
+  renameFolder(id: string, name: string): void
+  updateFolder(id: string, patch: FolderPatch): void
+  /** терминалы удаляемой папки переносятся на первую оставшуюся */
+  deleteFolder(id: string): void
+  setActiveFolder(id: string): void
 
   addTerminal(t: TermInfo): void
   updateTerminal(id: string, patch: Partial<TermInfo>): TermInfo | undefined
@@ -26,7 +34,7 @@ export interface Store {
 }
 
 export interface CreateTerminalOpts {
-  pageId: string
+  folderId: string
   cwd?: string
   name?: string
   worktree?: WorktreeBinding | null

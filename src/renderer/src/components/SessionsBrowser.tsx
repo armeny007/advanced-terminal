@@ -14,13 +14,13 @@ function formatDate(ms: number): string {
 export function SessionsBrowser({
   bindTermId,
   filterCwd,
-  activePageId,
+  activeFolderId,
   onClose,
   onSessionsLoaded
 }: {
   bindTermId: string | null
   filterCwd: string | null
-  activePageId: string
+  activeFolderId: string
   onClose: () => void
   onSessionsLoaded?: (s: ClaudeSessionMeta[]) => void
 }): React.JSX.Element {
@@ -54,7 +54,7 @@ export function SessionsBrowser({
       await window.api.bindSession(bindTermId, s.sessionId)
     } else {
       const t = await window.api.createTerminal({
-        pageId: activePageId,
+        folderId: activeFolderId,
         cwd: s.projectPath,
         name: basename(s.projectPath)
       })

@@ -1,4 +1,4 @@
-// node-pty: жизненный цикл shell-процессов + IPC состояния/страниц/терминалов/ui.
+// node-pty: жизненный цикл shell-процессов + IPC состояния/папок/терминалов/ui.
 import { app } from 'electron'
 import type { IpcMain } from 'electron'
 import * as pty from 'node-pty'
@@ -6,8 +6,9 @@ import type { IPty } from 'node-pty'
 import { randomUUID } from 'crypto'
 import { homedir } from 'os'
 import { IPC } from '../shared/types'
-import type { PageInfo, RunClaudeMode, TermInfo } from '../shared/types'
+import type { FolderInfo, FolderPatch, RunClaudeMode, TermInfo } from '../shared/types'
 import type { CreateTerminalOpts, PtyManager, Store } from './contracts'
+import { FOLDER_COLORS } from './store'
 import { EVENTS_DIR } from './paths'
 import { runtime, send } from './runtime'
 
@@ -51,7 +52,7 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
     const id = randomUUID()
     const term: TermInfo = {
       id,
-      pageId: opts.pageId,
+      folderId: opts.folderId,
       name: opts.name || `Терминал ${store.getState().terminals.length + 1}`,
       cwd: opts.cwd || homedir(),
       claudeSessionId: null,
@@ -80,15 +81,20 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
   // --- состояние ---
   ipcMain.handle(IPC.stateGet, () => store.getState())
 
-  // --- страницы ---
-  ipcMain.handle(IPC.pageCreate, (_e, name: string): PageInfo => {
-    const page: PageInfo = { id: randomUUID(), name }
-    store.addPage(page)
-    return page
+  // --- папки ---
+  ipcMain.handle(IPC.folderCreate, (_e, name: string): FolderInfo => {
+    // цвет по кругу из палитры, чтобы новые папки визуально различались
+    const color = FOLDER_COLORS[store.getState().folders.length % FOLDER_COLORS.length]
+    const folder: FolderInfo = { id: randomUUID(), name, color }
+    store.addFolder(folder)
+    return folder
   })
-  ipcMain.handle(IPC.pageRename, (_e, id: string, name: string) => store.renamePage(id, name))
-  ipcMain.handle(IPC.pageDelete, (_e, id: string) => store.deletePage(id))
-  ipcMain.handle(IPC.pageSetActive, (_e, id: string) => store.setActivePage(id))
+  ipcMain.handle(IPC.folderRename, (_e, id: string, name: string) => store.renameFolder(id, name))
+  ipcMain.handle(IPC.folderUpdate, (_e, id: string, patch: FolderPatch) =>
+    store.updateFolder(id, patch)
+  )
+  ipcMain.handle(IPC.folderDelete, (_e, id: string) => store.deleteFolder(id))
+  ipcMain.handle(IPC.folderSetActive, (_e, id: string) => store.setActiveFolder(id))
 
   // --- терминалы ---
   ipcMain.handle(IPC.termCreate, (_e, opts: CreateTerminalOpts) => createTerminal(opts))
@@ -114,8 +120,8 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
   ipcMain.handle(IPC.termRename, (_e, id: string, name: string) => {
     store.updateTerminal(id, { name })
   })
-  ipcMain.handle(IPC.termMoveToPage, (_e, id: string, pageId: string) => {
-    store.updateTerminal(id, { pageId })
+  ipcMain.handle(IPC.termMoveToFolder, (_e, id: string, folderId: string) => {
+    store.updateTerminal(id, { folderId })
   })
   ipcMain.handle(IPC.termBindSession, (_e, id: string, sessionId: string | null) => {
     store.updateTerminal(id, { claudeSessionId: sessionId })

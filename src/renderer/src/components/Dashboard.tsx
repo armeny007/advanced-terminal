@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { AppState, ClaudeStatus, PageInfo, TermInfo } from '../../../shared/types'
+import type { AppState, ClaudeStatus, FolderInfo, TermInfo } from '../../../shared/types'
 import { bus } from '../lib/bus'
 import { STATUS_COLOR, STATUS_LABEL, shortenPath, statusPulses } from '../lib/status'
 
@@ -12,11 +12,11 @@ const GROUPS: { title: string; match: (s: ClaudeStatus) => boolean }[] = [
 
 function DashRow({
   term,
-  page,
+  folder,
   onOpen
 }: {
   term: TermInfo
-  page: PageInfo | undefined
+  folder: FolderInfo | undefined
   onOpen: () => void
 }): React.JSX.Element {
   const [cmd, setCmd] = useState('')
@@ -37,7 +37,10 @@ function DashRow({
       <div className="dash-main">
         <div className="dash-line1">
           <span className="dash-name">{term.name}</span>
-          <span className="muted small">{page?.name}</span>
+          <span className="muted small">
+            {folder?.icon ? folder.icon + ' ' : ''}
+            {folder?.name}
+          </span>
           <span className="muted small">· {shortenPath(term.cwd)}</span>
           {term.worktree && <span className="badge wt-badge">⑂ {term.worktree.branch}</span>}
         </div>
@@ -72,7 +75,7 @@ export function Dashboard({
   state: AppState
   onOpenTerm: (term: TermInfo) => void
 }): React.JSX.Element {
-  const pageById = (id: string): PageInfo | undefined => state.pages.find((p) => p.id === id)
+  const folderById = (id: string): FolderInfo | undefined => state.folders.find((p) => p.id === id)
 
   if (state.terminals.length === 0) {
     return (
@@ -95,7 +98,7 @@ export function Dashboard({
               {g.title} <span className="muted">({items.length})</span>
             </div>
             {items.map((t) => (
-              <DashRow key={t.id} term={t} page={pageById(t.pageId)} onOpen={() => onOpenTerm(t)} />
+              <DashRow key={t.id} term={t} folder={folderById(t.folderId)} onOpen={() => onOpenTerm(t)} />
             ))}
           </div>
         )

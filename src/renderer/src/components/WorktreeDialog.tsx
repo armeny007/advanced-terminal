@@ -3,11 +3,11 @@ import { Modal } from '../lib/ui'
 
 export function WorktreeDialog({
   defaultProjectPath,
-  activePageId,
+  activeFolderId,
   onClose
 }: {
   defaultProjectPath: string
-  activePageId: string
+  activeFolderId: string
   onClose: () => void
 }): React.JSX.Element {
   const [projectPath, setProjectPath] = useState(defaultProjectPath)
@@ -31,7 +31,7 @@ export function WorktreeDialog({
     try {
       await window.api.setProjectConfig({ projectPath, setupScript })
       await window.api.createWorktreeTerminal({
-        pageId: activePageId,
+        folderId: activeFolderId,
         projectPath,
         branch: branch.trim(),
         name: name.trim() || undefined

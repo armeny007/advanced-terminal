@@ -4,7 +4,7 @@ import { bus } from './lib/bus'
 import { useAppState } from './lib/useAppState'
 import { basename } from './lib/status'
 import { TopBar } from './components/TopBar'
-import { Page } from './components/Page'
+import { Folder } from './components/Folder'
 import { Dashboard } from './components/Dashboard'
 import { SessionsBrowser } from './components/SessionsBrowser'
 import { GlobalSearch } from './components/GlobalSearch'
@@ -38,7 +38,7 @@ export default function App(): React.JSX.Element {
   const revealTerm = useCallback(
     (term: TermInfo) => {
       setView('grid')
-      window.api.setActivePage(term.pageId)
+      window.api.setActiveFolder(term.folderId)
       setHighlight(term.id)
       setTimeout(() => bus.focus(term.id), 120)
       setTimeout(() => setHighlight(null), 1500)
@@ -56,9 +56,9 @@ export default function App(): React.JSX.Element {
 
   const newTerminal = useCallback(
     (cwd?: string) => {
-      window.api.createTerminal({ pageId: state.activePageId, cwd })
+      window.api.createTerminal({ folderId: state.activeFolderId, cwd })
     },
-    [state.activePageId]
+    [state.activeFolderId]
   )
 
   // горячие клавиши
@@ -82,12 +82,12 @@ export default function App(): React.JSX.Element {
     setSearch('')
     setSearchOpen(false)
     if (r.kind === 'terminal' && r.term) revealTerm(r.term)
-    else if (r.kind === 'page' && r.pageId) {
+    else if (r.kind === 'folder' && r.folderId) {
       setView('grid')
-      window.api.setActivePage(r.pageId)
+      window.api.setActiveFolder(r.folderId)
     } else if (r.kind === 'session' && r.session) {
       const s = r.session
-      window.api.createTerminal({ pageId: state.activePageId, cwd: s.projectPath, name: basename(s.projectPath) }).then((t) => window.api.runClaude(t.id, 'resume', s.sessionId))
+      window.api.createTerminal({ folderId: state.activeFolderId, cwd: s.projectPath, name: basename(s.projectPath) }).then((t) => window.api.runClaude(t.id, 'resume', s.sessionId))
     }
   }
 
@@ -146,13 +146,13 @@ export default function App(): React.JSX.Element {
         {view === 'dashboard' ? (
           <Dashboard state={state} onOpenTerm={revealTerm} />
         ) : (
-          state.pages.map((p) => (
-            <Page
+          state.folders.map((p) => (
+            <Folder
               key={p.id}
-              page={p}
-              terminals={state.terminals.filter((t) => t.pageId === p.id)}
-              allPages={state.pages}
-              active={p.id === state.activePageId}
+              folder={p}
+              terminals={state.terminals.filter((t) => t.folderId === p.id)}
+              allFolders={state.folders}
+              active={p.id === state.activeFolderId}
               highlightTermId={highlight}
               onNewTerminal={() => newTerminal()}
               onNewInFolder={() => {
@@ -171,7 +171,7 @@ export default function App(): React.JSX.Element {
         <SessionsBrowser
           bindTermId={modal.bindTermId}
           filterCwd={modal.filterCwd}
-          activePageId={state.activePageId}
+          activeFolderId={state.activeFolderId}
           onClose={() => setModal(null)}
           onSessionsLoaded={(s) => (sessionsCache.current = s)}
         />
@@ -179,7 +179,7 @@ export default function App(): React.JSX.Element {
       {modal?.type === 'worktree' && (
         <WorktreeDialog
           defaultProjectPath={lastCwd}
-          activePageId={state.activePageId}
+          activeFolderId={state.activeFolderId}
           onClose={() => setModal(null)}
         />
       )}

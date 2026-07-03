@@ -1,11 +1,11 @@
-import type { PageInfo, TermInfo } from '../../../shared/types'
+import type { FolderInfo, TermInfo } from '../../../shared/types'
 import { Menu } from '../lib/ui'
 import { TerminalCard } from './TerminalCard'
 
-export function Page({
-  page,
+export function Folder({
+  folder,
   terminals,
-  allPages,
+  allFolders,
   active,
   highlightTermId,
   onNewTerminal,
@@ -14,9 +14,9 @@ export function Page({
   onOpenSessions,
   onWorktreeDiff
 }: {
-  page: PageInfo
+  folder: FolderInfo
   terminals: TermInfo[]
-  allPages: PageInfo[]
+  allFolders: FolderInfo[]
   active: boolean
   highlightTermId: string | null
   onNewTerminal: () => void
@@ -28,8 +28,8 @@ export function Page({
   const cols = terminals.length <= 1 ? 1 : terminals.length <= 4 ? 2 : 3
 
   return (
-    <div className="page" style={{ display: active ? 'flex' : 'none' }}>
-      <div className="page-actions">
+    <div className="folder" style={{ display: active ? 'flex' : 'none' }}>
+      <div className="folder-actions">
         <button className="btn primary" onClick={onNewTerminal}>
           + Терминал
         </button>
@@ -50,7 +50,7 @@ export function Page({
 
       {terminals.length === 0 ? (
         <div className="empty">
-          <p>На этой странице пока нет терминалов</p>
+          <p>В этой папке пока нет терминалов</p>
           <button className="btn primary" onClick={onNewTerminal}>
             + Терминал
           </button>
@@ -61,8 +61,8 @@ export function Page({
             <TerminalCard
               key={t.id}
               term={t}
-              pages={allPages}
-              isActivePage={active}
+              folders={allFolders}
+              isActiveFolder={active}
               highlighted={highlightTermId === t.id}
               onOpenSessions={onOpenSessions}
               onWorktreeDiff={onWorktreeDiff}

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { AppState } from '../../../shared/types'
 
-const EMPTY: AppState = { pages: [], terminals: [], activePageId: '', hooksInstalled: true }
+const EMPTY: AppState = { folders: [], terminals: [], activeFolderId: '', hooksInstalled: true }
 
 /** Состояние приложения из main: getState при старте + подписка на изменения */
 export function useAppState(): AppState {

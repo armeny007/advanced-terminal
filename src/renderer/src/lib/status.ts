@@ -21,14 +21,14 @@ export function statusPulses(s: ClaudeStatus): boolean {
   return s === 'working' || s === 'needs_input' || s === 'permission'
 }
 
-export interface PageBadge {
+export interface FolderBadge {
   color: string
   text: string
   pulse: boolean
 }
 
-/** Сводный бейдж страницы по приоритету: permission > needs_input > working */
-export function pageBadge(terms: TermInfo[]): PageBadge | null {
+/** Сводный бейдж папки по приоритету: permission > needs_input > working */
+export function folderBadge(terms: TermInfo[]): FolderBadge | null {
   if (terms.some((t) => t.status === 'permission')) {
     return { color: STATUS_COLOR.permission, text: 'разрешение', pulse: true }
   }

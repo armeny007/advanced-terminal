@@ -4,39 +4,47 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'fs'
 import { randomUUID } from 'crypto'
 import { dirname, join } from 'path'
 import type { Store } from './contracts'
-import type { AppState, PageInfo, ProjectConfig, TermInfo } from '../shared/types'
+import type { AppState, FolderInfo, ProjectConfig, TermInfo } from '../shared/types'
 
 /** Персистируемая часть состояния (hooksInstalled не сохраняется) */
 interface PersistedState {
-  pages: PageInfo[]
+  folders: FolderInfo[]
   terminals: TermInfo[]
-  activePageId: string
+  activeFolderId: string
   projectConfigs: Record<string, ProjectConfig>
 }
 
 const SAVE_DEBOUNCE_MS = 300
 
+/** Палитра акцентов для папок; новые папки берут следующий по кругу цвет */
+export const FOLDER_COLORS = ['#89b4fa', '#a6e3a1', '#fab387', '#f38ba8', '#cba6f7', '#94e2d5', '#f9e2af']
+
+/** Три категории по умолчанию при первом запуске */
 function defaultState(): PersistedState {
-  const page: PageInfo = { id: randomUUID(), name: 'Основная' }
-  return { pages: [page], terminals: [], activePageId: page.id, projectConfigs: {} }
+  const seed: FolderInfo[] = [
+    { id: randomUUID(), name: 'Рабочее', color: '#89b4fa', icon: '💼' },
+    { id: randomUUID(), name: 'Проекты', color: '#a6e3a1', icon: '🚀' },
+    { id: randomUUID(), name: 'Общие вопросы', color: '#cba6f7', icon: '💬' }
+  ]
+  return { folders: seed, terminals: [], activeFolderId: seed[0].id, projectConfigs: {} }
 }
 
 function loadState(file: string): PersistedState {
   try {
     const raw = JSON.parse(readFileSync(file, 'utf8')) as Partial<PersistedState>
-    if (!Array.isArray(raw.pages) || raw.pages.length === 0 || !Array.isArray(raw.terminals)) {
+    if (!Array.isArray(raw.folders) || raw.folders.length === 0 || !Array.isArray(raw.terminals)) {
       return defaultState()
     }
-    const pages = raw.pages
-    const activePageId = pages.some((p) => p.id === raw.activePageId)
-      ? (raw.activePageId as string)
-      : pages[0].id
+    const folders = raw.folders
+    const activeFolderId = folders.some((p) => p.id === raw.activeFolderId)
+      ? (raw.activeFolderId as string)
+      : folders[0].id
     // pty-процессы не переживают перезапуск приложения; claudeSessionId сохраняем
     const terminals = raw.terminals.map((t) => ({ ...t, alive: false, status: 'none' as const }))
     return {
-      pages,
+      folders,
       terminals,
-      activePageId,
+      activeFolderId,
       projectConfigs: raw.projectConfigs && typeof raw.projectConfigs === 'object' ? raw.projectConfigs : {}
     }
   } catch {
@@ -49,9 +57,9 @@ export function createStore(): Store {
   const persisted = loadState(file)
 
   const state: AppState = {
-    pages: persisted.pages,
+    folders: persisted.folders,
     terminals: persisted.terminals,
-    activePageId: persisted.activePageId,
+    activeFolderId: persisted.activeFolderId,
     hooksInstalled: false
   }
   const projectConfigs = persisted.projectConfigs
@@ -65,9 +73,9 @@ export function createStore(): Store {
       saveTimer = null
     }
     const data: PersistedState = {
-      pages: state.pages,
+      folders: state.folders,
       terminals: state.terminals,
-      activePageId: state.activePageId,
+      activeFolderId: state.activeFolderId,
       projectConfigs
     }
     try {
@@ -102,31 +110,39 @@ export function createStore(): Store {
   return {
     getState: () => state,
 
-    addPage: (p) => {
-      state.pages.push(p)
+    addFolder: (p) => {
+      state.folders.push(p)
       commit()
     },
-    renamePage: (id, name) => {
-      const p = state.pages.find((x) => x.id === id)
+    renameFolder: (id, name) => {
+      const p = state.folders.find((x) => x.id === id)
       if (!p) return
       p.name = name
       commit()
     },
-    deletePage: (id) => {
-      if (state.pages.length <= 1) return // последнюю страницу удалять нельзя
-      const idx = state.pages.findIndex((p) => p.id === id)
-      if (idx === -1) return
-      state.pages.splice(idx, 1)
-      const target = state.pages[0]
-      for (const t of state.terminals) {
-        if (t.pageId === id) t.pageId = target.id
-      }
-      if (state.activePageId === id) state.activePageId = target.id
+    updateFolder: (id, patch) => {
+      const p = state.folders.find((x) => x.id === id)
+      if (!p) return
+      if (patch.name !== undefined) p.name = patch.name
+      if (patch.color !== undefined) p.color = patch.color
+      if (patch.icon !== undefined) p.icon = patch.icon
       commit()
     },
-    setActivePage: (id) => {
-      if (!state.pages.some((p) => p.id === id)) return
-      state.activePageId = id
+    deleteFolder: (id) => {
+      if (state.folders.length <= 1) return // последнюю папку удалять нельзя
+      const idx = state.folders.findIndex((p) => p.id === id)
+      if (idx === -1) return
+      state.folders.splice(idx, 1)
+      const target = state.folders[0]
+      for (const t of state.terminals) {
+        if (t.folderId === id) t.folderId = target.id
+      }
+      if (state.activeFolderId === id) state.activeFolderId = target.id
+      commit()
+    },
+    setActiveFolder: (id) => {
+      if (!state.folders.some((p) => p.id === id)) return
+      state.activeFolderId = id
       commit()
     },
 

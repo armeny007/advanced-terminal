@@ -38,9 +38,9 @@ export async function listWorktrees(projectPath: string): Promise<WorktreeInfo[]
 export async function createWorktreeTerminal(
   store: Store,
   ptyManager: PtyManager,
-  opts: { pageId: string; projectPath: string; branch: string; name?: string }
+  opts: { folderId: string; projectPath: string; branch: string; name?: string }
 ): Promise<TermInfo> {
-  const { pageId, projectPath, branch, name } = opts
+  const { folderId, projectPath, branch, name } = opts
   const wtBase = join(dirname(projectPath), basename(projectPath) + '-worktrees')
   // 'feature/foo' -> 'feature-foo': недопустимые для директории символы заменяем на '-'
   const wtPath = join(wtBase, branch.replace(/[^\w.-]+/g, '-'))
@@ -59,7 +59,7 @@ export async function createWorktreeTerminal(
   }
 
   const term = ptyManager.createTerminal({
-    pageId,
+    folderId,
     cwd: wtPath,
     name: name || branch,
     worktree: { projectPath, worktreePath: wtPath, branch }

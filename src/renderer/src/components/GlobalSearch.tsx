@@ -3,13 +3,13 @@ import type { AppState, ClaudeSessionMeta, TermInfo } from '../../../shared/type
 import { basename, shortenPath } from '../lib/status'
 
 export interface SearchResult {
-  kind: 'terminal' | 'page' | 'session'
+  kind: 'terminal' | 'folder' | 'session'
   id: string
   title: string
   subtitle: string
   term?: TermInfo
   session?: ClaudeSessionMeta
-  pageId?: string
+  folderId?: string
 }
 
 export function GlobalSearch({
@@ -40,9 +40,9 @@ export function GlobalSearch({
         })
       }
     }
-    for (const p of state.pages) {
+    for (const p of state.folders) {
       if (p.name.toLowerCase().includes(q)) {
-        out.push({ kind: 'page', id: p.id, title: p.name, subtitle: 'страница', pageId: p.id })
+        out.push({ kind: 'folder', id: p.id, title: p.name, subtitle: 'папка', folderId: p.id })
       }
     }
     for (const s of sessions) {
@@ -62,7 +62,7 @@ export function GlobalSearch({
 
   if (!query.trim()) return null
 
-  const icon = { terminal: '▢', page: '❏', session: '⟲' }
+  const icon = { terminal: '▢', folder: '❏', session: '⟲' }
 
   return (
     <div className="search-dropdown">

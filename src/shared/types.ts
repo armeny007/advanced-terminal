@@ -12,10 +12,17 @@ export type ClaudeStatus =
   | 'permission' // ждёт подтверждения разрешения
   | 'idle' // сессия активна, Claude закончил ход и ждёт команду
 
-export interface PageInfo {
+export interface FolderInfo {
   id: string
   name: string
+  /** цвет-акцент вкладки (hex); если не задан — нейтральный */
+  color?: string
+  /** эмодзи-иконка вкладки */
+  icon?: string
 }
+
+/** Изменяемые поля папки (для updateFolder) */
+export type FolderPatch = Partial<Pick<FolderInfo, 'name' | 'color' | 'icon'>>
 
 /** Привязка терминала к git worktree (V2) */
 export interface WorktreeBinding {
@@ -27,7 +34,7 @@ export interface WorktreeBinding {
 
 export interface TermInfo {
   id: string
-  pageId: string
+  folderId: string
   name: string
   cwd: string
   claudeSessionId: string | null
@@ -39,9 +46,9 @@ export interface TermInfo {
 }
 
 export interface AppState {
-  pages: PageInfo[]
+  folders: FolderInfo[]
   terminals: TermInfo[]
-  activePageId: string
+  activeFolderId: string
   /** установлены ли hooks Claude Code (проверяется при старте) */
   hooksInstalled: boolean
 }
@@ -106,20 +113,21 @@ export const IPC = {
   stateGet: 'state:get', // invoke () => AppState
   stateChanged: 'state:changed', // on (AppState)
 
-  // страницы
-  pageCreate: 'page:create', // invoke (name) => PageInfo
-  pageRename: 'page:rename', // invoke (id, name)
-  pageDelete: 'page:delete', // invoke (id) — терминалы переносятся на первую страницу
-  pageSetActive: 'page:setActive', // invoke (id)
+  // папки
+  folderCreate: 'folder:create', // invoke (name) => FolderInfo
+  folderRename: 'folder:rename', // invoke (id, name)
+  folderUpdate: 'folder:update', // invoke (id, FolderPatch) — имя/цвет/иконка
+  folderDelete: 'folder:delete', // invoke (id) — терминалы переносятся на первую папку
+  folderSetActive: 'folder:setActive', // invoke (id)
 
   // терминалы
-  termCreate: 'term:create', // invoke ({pageId, cwd?, name?}) => TermInfo
+  termCreate: 'term:create', // invoke ({folderId, cwd?, name?}) => TermInfo
   termWrite: 'term:write', // send (id, data)
   termResize: 'term:resize', // send (id, cols, rows)
   termClose: 'term:close', // invoke (id)
   termRestart: 'term:restart', // invoke (id) => TermInfo — новый shell в том же cwd
   termRename: 'term:rename', // invoke (id, name)
-  termMoveToPage: 'term:moveToPage', // invoke (id, pageId)
+  termMoveToFolder: 'term:moveToFolder', // invoke (id, folderId)
   termBindSession: 'term:bindSession', // invoke (id, sessionId | null)
   termRunClaude: 'term:runClaude', // invoke (id, mode: RunClaudeMode, sessionId?)
   termData: 'term:data', // on (id, data)
@@ -137,7 +145,7 @@ export const IPC = {
 
   // worktrees (V2)
   wtList: 'wt:list', // invoke (projectPath) => WorktreeInfo[]
-  wtCreateTerminal: 'wt:createTerminal', // invoke ({pageId, projectPath, branch, name?}) => TermInfo
+  wtCreateTerminal: 'wt:createTerminal', // invoke ({folderId, projectPath, branch, name?}) => TermInfo
   wtRemove: 'wt:remove', // invoke (termId) => {ok, error?}
   wtDiff: 'wt:diff', // invoke (termId) => string (git diff против main)
   projectConfigGet: 'project:configGet', // invoke (projectPath) => ProjectConfig
@@ -152,20 +160,21 @@ export interface AdvTermApi {
   getState(): Promise<AppState>
   onStateChanged(cb: (s: AppState) => void): () => void
 
-  // страницы
-  createPage(name: string): Promise<PageInfo>
-  renamePage(id: string, name: string): Promise<void>
-  deletePage(id: string): Promise<void>
-  setActivePage(id: string): Promise<void>
+  // папки
+  createFolder(name: string): Promise<FolderInfo>
+  renameFolder(id: string, name: string): Promise<void>
+  updateFolder(id: string, patch: FolderPatch): Promise<void>
+  deleteFolder(id: string): Promise<void>
+  setActiveFolder(id: string): Promise<void>
 
   // терминалы
-  createTerminal(opts: { pageId: string; cwd?: string; name?: string }): Promise<TermInfo>
+  createTerminal(opts: { folderId: string; cwd?: string; name?: string }): Promise<TermInfo>
   writeTerminal(id: string, data: string): void
   resizeTerminal(id: string, cols: number, rows: number): void
   closeTerminal(id: string): Promise<void>
   restartTerminal(id: string): Promise<TermInfo>
   renameTerminal(id: string, name: string): Promise<void>
-  moveTerminalToPage(id: string, pageId: string): Promise<void>
+  moveTerminalToFolder(id: string, folderId: string): Promise<void>
   bindSession(id: string, sessionId: string | null): Promise<void>
   runClaude(id: string, mode: RunClaudeMode, sessionId?: string): Promise<void>
   onTermData(cb: (id: string, data: string) => void): () => void
@@ -184,7 +193,7 @@ export interface AdvTermApi {
   // worktrees (V2)
   listWorktrees(projectPath: string): Promise<WorktreeInfo[]>
   createWorktreeTerminal(opts: {
-    pageId: string
+    folderId: string
     projectPath: string
     branch: string
     name?: string

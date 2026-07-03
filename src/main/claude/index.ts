@@ -35,7 +35,7 @@ export function initClaude(ipcMain: IpcMain, store: Store, ptyManager: PtyManage
   ipcMain.handle(IPC.wtList, (_e, projectPath: string) => listWorktrees(projectPath))
   ipcMain.handle(
     IPC.wtCreateTerminal,
-    (_e, opts: { pageId: string; projectPath: string; branch: string; name?: string }) =>
+    (_e, opts: { folderId: string; projectPath: string; branch: string; name?: string }) =>
       createWorktreeTerminal(store, ptyManager, opts)
   )
   ipcMain.handle(IPC.wtRemove, (_e, termId: string) => removeWorktree(store, ptyManager, termId))

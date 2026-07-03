@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { SearchAddon } from '@xterm/addon-search'
-import type { PageInfo, TermInfo } from '../../../shared/types'
+import type { FolderInfo, TermInfo } from '../../../shared/types'
 import { bus } from '../lib/bus'
 import { STATUS_COLOR, STATUS_LABEL, shortenPath, statusPulses } from '../lib/status'
 import { Menu } from '../lib/ui'
@@ -45,15 +45,15 @@ function safeFit(fit: FitAddon, el: HTMLElement): { cols: number; rows: number }
 
 export function TerminalCard({
   term,
-  pages,
-  isActivePage,
+  folders,
+  isActiveFolder,
   highlighted,
   onOpenSessions,
   onWorktreeDiff
 }: {
   term: TermInfo
-  pages: PageInfo[]
-  isActivePage: boolean
+  folders: FolderInfo[]
+  isActiveFolder: boolean
   highlighted: boolean
   onOpenSessions: (bindTermId: string, cwd: string) => void
   onWorktreeDiff: (term: TermInfo) => void
@@ -114,9 +114,9 @@ export function TerminalCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [term.id])
 
-  // страница стала активной — подогнать размер (в скрытом состоянии fit не работает)
+  // папка стала активной — подогнать размер (в скрытом состоянии fit не работает)
   useEffect(() => {
-    if (!isActivePage) return
+    if (!isActiveFolder) return
     const el = bodyRef.current
     const fit = fitRef.current
     if (!el || !fit) return
@@ -125,7 +125,7 @@ export function TerminalCard({
       if (d) window.api.resizeTerminal(term.id, d.cols, d.rows)
     })
     return () => cancelAnimationFrame(id)
-  }, [isActivePage, term.id])
+  }, [isActiveFolder, term.id])
 
   useEffect(() => setExited(!term.alive), [term.alive])
 
@@ -167,12 +167,12 @@ export function TerminalCard({
     }
   ]
 
-  const moveItems: MenuItem[] = pages
-    .filter((p) => p.id !== term.pageId)
-    .map((p) => ({ label: p.name, onClick: () => window.api.moveTerminalToPage(term.id, p.id) }))
+  const moveItems: MenuItem[] = folders
+    .filter((p) => p.id !== term.folderId)
+    .map((p) => ({ label: p.name, onClick: () => window.api.moveTerminalToFolder(term.id, p.id) }))
 
   const actionItems: MenuItem[] = [
-    { label: 'Переместить на страницу', submenu: moveItems.length ? moveItems : [{ label: '(нет других)', disabled: true }] },
+    { label: 'Переместить в папку', submenu: moveItems.length ? moveItems : [{ label: '(нет других)', disabled: true }] },
     { label: 'Привязать сессию…', onClick: () => onOpenSessions(term.id, term.cwd) },
     ...(term.worktree
       ? [
