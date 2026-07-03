@@ -67,6 +67,12 @@ function setDevDockIcon(): void {
 
 app.setName(APP_NAME)
 
+// ВАЖНО: userData вычисляется из имени приложения, поэтому app.setName сдвинул
+// бы папку данных (advanced-terminal -> «Advanced Terminal») и потерял состояние.
+// Закрепляем userData на стабильном имени, чтобы состояние (state.json с
+// терминалами/сессиями) не зависело от отображаемого имени и не терялось.
+app.setPath('userData', join(app.getPath('appData'), 'advanced-terminal'))
+
 app.whenReady().then(() => {
   app.setAboutPanelOptions({
     applicationName: APP_NAME,
