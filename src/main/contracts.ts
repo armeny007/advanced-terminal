@@ -26,6 +26,7 @@ export interface Store {
 
   setHooksInstalled(v: boolean): void
   setFolderDetached(id: string, detached: boolean): void
+  setAutoResumeSessions(v: boolean): void
 
   getProjectConfig(projectPath: string): ProjectConfig
   setProjectConfig(cfg: ProjectConfig): void

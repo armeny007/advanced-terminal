@@ -29,12 +29,31 @@ export default function App({ soloFolderId }: { soloFolderId?: string }): React.
   const [highlight, setHighlight] = useState<string | null>(null)
   const sessionsCache = useRef<ClaudeSessionMeta[]>([])
   const [hooksDismissed, setHooksDismissed] = useState(false)
+  const [resumeList, setResumeList] = useState<TermInfo[]>([])
+  const startupDone = useRef(false)
 
   useEffect(() => bus.start(), [])
 
   useEffect(() => {
     window.api.listClaudeSessions().then((s) => (sessionsCache.current = s))
   }, [])
+
+  // возобновить привязанные Claude-сессии в восстановленных терминалах (с разбежкой)
+  const resumeAll = useCallback((terms: TermInfo[]) => {
+    terms.forEach((t, i) => {
+      if (t.claudeSessionId) setTimeout(() => window.api.runClaude(t.id, 'resume', t.claudeSessionId!), i * 250)
+    })
+  }, [])
+
+  // при первом запуске: либо авто-возобновление, либо баннер с предложением
+  useEffect(() => {
+    if (solo || startupDone.current || state.folders.length === 0) return
+    startupDone.current = true
+    const resumable = state.terminals.filter((t) => t.claudeSessionId && t.status === 'none')
+    if (resumable.length === 0) return
+    if (state.autoResumeSessions) resumeAll(resumable)
+    else setResumeList(resumable)
+  }, [state, solo, resumeAll])
 
   // В главном окне не показываем вынесенные папки; окно отдельной папки — только её.
   const soloFolder = solo ? state.folders.find((f) => f.id === soloFolderId) : undefined
@@ -194,6 +213,37 @@ export default function App({ soloFolderId }: { soloFolderId?: string }): React.
             Установить
           </button>
           <button className="btn small ghost" onClick={() => setHooksDismissed(true)}>
+            Скрыть
+          </button>
+        </div>
+      )}
+
+      {!solo && resumeList.length > 0 && (
+        <div className="resume-banner">
+          <span>Возобновить Claude-сессии в восстановленных терминалах: {resumeList.length}</span>
+          <button
+            className="btn small"
+            onClick={() => {
+              resumeAll(resumeList)
+              setResumeList([])
+            }}
+          >
+            Восстановить все
+          </button>
+          <label className="resume-auto">
+            <input
+              type="checkbox"
+              onChange={(e) => {
+                window.api.setAutoResumeSessions(e.target.checked)
+                if (e.target.checked) {
+                  resumeAll(resumeList)
+                  setResumeList([])
+                }
+              }}
+            />
+            всегда при запуске
+          </label>
+          <button className="btn small ghost" onClick={() => setResumeList([])}>
             Скрыть
           </button>
         </div>

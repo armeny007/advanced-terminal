@@ -146,10 +146,11 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
     }
   )
 
-  // --- ui ---
+  // --- ui / настройки ---
   ipcMain.on(IPC.uiSetFocusedTerm, (_e, id: string | null) => {
     runtime.focusedTermId = id
   })
+  ipcMain.handle(IPC.settingsSetAutoResume, (_e, v: boolean) => store.setAutoResumeSessions(v))
 
   app.on('before-quit', () => {
     for (const p of ptys.values()) p.kill()

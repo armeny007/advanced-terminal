@@ -326,6 +326,25 @@ textarea:focus {
   font-size: 12px;
 }
 
+/* ---- баннер восстановления сессий ---- */
+.resume-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 14px;
+  background: #10233f;
+  border-bottom: 1px solid #1e3a5f;
+  color: #89b4fa;
+  font-size: 12px;
+}
+.resume-auto {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
 /* ---- контент ---- */
 .content {
   flex: 1;

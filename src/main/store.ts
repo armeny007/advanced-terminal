@@ -12,6 +12,7 @@ interface PersistedState {
   terminals: TermInfo[]
   activeFolderId: string
   projectConfigs: Record<string, ProjectConfig>
+  autoResumeSessions: boolean
 }
 
 const SAVE_DEBOUNCE_MS = 300
@@ -26,7 +27,7 @@ function defaultState(): PersistedState {
     { id: randomUUID(), name: 'Проекты', color: '#a6e3a1', icon: '🚀' },
     { id: randomUUID(), name: 'Общие вопросы', color: '#cba6f7', icon: '💬' }
   ]
-  return { folders: seed, terminals: [], activeFolderId: seed[0].id, projectConfigs: {} }
+  return { folders: seed, terminals: [], activeFolderId: seed[0].id, projectConfigs: {}, autoResumeSessions: false }
 }
 
 function loadState(file: string): PersistedState {
@@ -45,7 +46,8 @@ function loadState(file: string): PersistedState {
       folders,
       terminals,
       activeFolderId,
-      projectConfigs: raw.projectConfigs && typeof raw.projectConfigs === 'object' ? raw.projectConfigs : {}
+      projectConfigs: raw.projectConfigs && typeof raw.projectConfigs === 'object' ? raw.projectConfigs : {},
+      autoResumeSessions: raw.autoResumeSessions === true
     }
   } catch {
     return defaultState()
@@ -61,7 +63,8 @@ export function createStore(): Store {
     terminals: persisted.terminals,
     activeFolderId: persisted.activeFolderId,
     hooksInstalled: false,
-    detachedFolderIds: []
+    detachedFolderIds: [],
+    autoResumeSessions: persisted.autoResumeSessions
   }
   const projectConfigs = persisted.projectConfigs
 
@@ -77,7 +80,8 @@ export function createStore(): Store {
       folders: state.folders,
       terminals: state.terminals,
       activeFolderId: state.activeFolderId,
-      projectConfigs
+      projectConfigs,
+      autoResumeSessions: state.autoResumeSessions
     }
     try {
       mkdirSync(dirname(file), { recursive: true })
@@ -178,6 +182,11 @@ export function createStore(): Store {
       else if (!detached && has) state.detachedFolderIds = state.detachedFolderIds.filter((x) => x !== id)
       else return
       emit() // не персистится
+    },
+    setAutoResumeSessions: (v) => {
+      if (state.autoResumeSessions === v) return
+      state.autoResumeSessions = v
+      commit()
     },
 
     getProjectConfig: (projectPath) =>

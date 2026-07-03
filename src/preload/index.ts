@@ -47,6 +47,7 @@ const api: AdvTermApi = {
   // ui
   setFocusedTerm: (id) => ipcRenderer.send(IPC.uiSetFocusedTerm, id),
   onRevealTerm: (cb) => on(IPC.uiRevealTerm, cb as never),
+  setAutoResumeSessions: (v) => ipcRenderer.invoke(IPC.settingsSetAutoResume, v),
 
   // worktrees (V2)
   listWorktrees: (projectPath) => ipcRenderer.invoke(IPC.wtList, projectPath),

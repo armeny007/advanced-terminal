@@ -53,6 +53,8 @@ export interface AppState {
   hooksInstalled: boolean
   /** id папок, вынесенных в отдельные окна (не персистится) */
   detachedFolderIds: string[]
+  /** автоматически возобновлять привязанные Claude-сессии при запуске */
+  autoResumeSessions: boolean
 }
 
 /** Метаданные прошлой сессии из ~/.claude/projects/<dir>/<uuid>.jsonl */
@@ -146,6 +148,7 @@ export const IPC = {
   // ui
   uiSetFocusedTerm: 'ui:setFocusedTerm', // send (id | null) — для подавления уведомлений
   uiRevealTerm: 'ui:revealTerm', // on (termId) — клик по уведомлению
+  settingsSetAutoResume: 'settings:setAutoResume', // invoke (bool)
 
   // worktrees (V2)
   wtList: 'wt:list', // invoke (projectPath) => WorktreeInfo[]
@@ -195,6 +198,7 @@ export interface AdvTermApi {
   // ui
   setFocusedTerm(id: string | null): void
   onRevealTerm(cb: (termId: string) => void): () => void
+  setAutoResumeSessions(v: boolean): Promise<void>
 
   // worktrees (V2)
   listWorktrees(projectPath: string): Promise<WorktreeInfo[]>

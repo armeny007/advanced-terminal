@@ -6,7 +6,8 @@ const EMPTY: AppState = {
   terminals: [],
   activeFolderId: '',
   hooksInstalled: true,
-  detachedFolderIds: []
+  detachedFolderIds: [],
+  autoResumeSessions: false
 }
 
 /** Состояние приложения из main: getState при старте + подписка на изменения */
