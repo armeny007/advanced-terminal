@@ -26,6 +26,9 @@ export function startWatcher(store: Store): void {
   } catch {
     // директория недоступна — статусы просто не будут обновляться
   }
+  // периодический поллинг: fs.watch иногда пропускает события (особенно под
+  // нагрузкой из многих сессий) — иначе статус может «зависнуть» на working
+  setInterval(() => void scan(store), 1000)
   // обработать файлы, накопившиеся до старта
   void scan(store)
 }
@@ -46,10 +49,14 @@ async function scan(store: Store): Promise<void> {
       } catch {
         return
       }
+      // terminated: терминалы, у которых в этом скане уже был Stop/SessionEnd —
+      // поздний PostToolUse того же хода (та же секунда, случайный порядок в имени)
+      // не должен возвращать статус в working
+      const terminated = new Set<string>()
       // сортировка по имени ~ по времени (префикс — unix timestamp)
       for (const f of files.filter((n) => n.endsWith('.json')).sort()) {
         try {
-          await processFile(store, f)
+          await processFile(store, f, terminated)
         } catch {
           // watcher не должен падать никогда
         }
@@ -60,7 +67,7 @@ async function scan(store: Store): Promise<void> {
   }
 }
 
-async function processFile(store: Store, fileName: string): Promise<void> {
+async function processFile(store: Store, fileName: string, terminated: Set<string>): Promise<void> {
   const full = join(EVENTS_DIR, fileName)
   let payload: EventPayload = {}
   try {
@@ -87,14 +94,17 @@ async function processFile(store: Store, fileName: string): Promise<void> {
   switch (hookEvent) {
     case 'SessionStart':
       status = 'idle'
+      terminated.delete(termId) // началась новая активность
       // автопривязка сессии к терминалу
       if (typeof payload.session_id === 'string') patch.claudeSessionId = payload.session_id
       break
     case 'UserPromptSubmit':
       status = 'working'
+      terminated.delete(termId) // началась новая активность
       break
     case 'PostToolUse':
-      if (prev === 'working') return // событий много — не дёргаем store и renderer
+      // Stop/SessionEnd этого хода уже обработан в этом скане — не воскрешаем working
+      if (terminated.has(termId) || prev === 'working') return
       status = 'working'
       break
     case 'Notification': {
@@ -104,9 +114,11 @@ async function processFile(store: Store, fileName: string): Promise<void> {
     }
     case 'Stop':
       status = 'idle'
+      terminated.add(termId)
       break
     case 'SessionEnd':
       status = 'none' // claudeSessionId сохраняем
+      terminated.add(termId)
       break
     default:
       return
