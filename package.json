@@ -35,7 +35,8 @@
       "package.json"
     ],
     "mac": {
-      "category": "public.app-category.developer-tools"
+      "category": "public.app-category.developer-tools",
+      "icon": "build/icon.icns"
     }
   },
   "dependencies": {

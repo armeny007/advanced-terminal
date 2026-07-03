@@ -1,0 +1,44 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2b2b44"/>
+      <stop offset="1" stop-color="#12121d"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0" y1="200" x2="0" y2="820" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1c1c2b"/>
+      <stop offset="1" stop-color="#15151f"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.42" cy="0.6" r="0.5">
+      <stop offset="0" stop-color="#89b4fa" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#89b4fa" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.10"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- плитка -->
+  <rect x="0" y="0" width="1024" height="1024" rx="224" fill="url(#tile)"/>
+  <rect x="4" y="4" width="1016" height="1016" rx="220" fill="none" stroke="#ffffff" stroke-opacity="0.06" stroke-width="2"/>
+  <rect x="0" y="0" width="1024" height="512" rx="224" fill="url(#sheen)"/>
+
+  <!-- экран терминала -->
+  <rect x="150" y="206" width="724" height="612" rx="72" fill="url(#screen)"/>
+  <rect x="150" y="206" width="724" height="612" rx="72" fill="none" stroke="#cdd6f4" stroke-opacity="0.10" stroke-width="2"/>
+
+  <!-- вкладки-папки -->
+  <rect x="196" y="250" width="150" height="52" rx="26" fill="#89b4fa"/>
+  <rect x="362" y="250" width="132" height="52" rx="26" fill="#a6e3a1" fill-opacity="0.85"/>
+  <rect x="510" y="250" width="132" height="52" rx="26" fill="#cba6f7" fill-opacity="0.85"/>
+
+  <!-- разделитель шапки -->
+  <rect x="196" y="342" width="632" height="3" rx="1.5" fill="#cdd6f4" fill-opacity="0.10"/>
+
+  <!-- подсветка промпта -->
+  <ellipse cx="470" cy="585" rx="330" ry="230" fill="url(#glow)"/>
+
+  <!-- терминальный промпт: chevron + курсор -->
+  <path d="M 300 470 L 452 585 L 300 700" fill="none" stroke="#89b4fa" stroke-width="62" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="500" y="652" width="228" height="52" rx="26" fill="#cdd6f4"/>
+</svg>

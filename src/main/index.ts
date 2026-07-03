@@ -1,9 +1,17 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, nativeImage } from 'electron'
 import { join } from 'path'
 import { runtime } from './runtime'
 import { createStore } from './store'
 import { initPty } from './pty'
 import { initClaude } from './claude'
+
+// В dev-режиме иконка дока — стандартная иконка Electron; подменяем её нашей.
+// В упакованном приложении иконку задаёт .icns из бандла.
+function setDevDockIcon(): void {
+  if (process.platform !== 'darwin' || app.isPackaged) return
+  const img = nativeImage.createFromPath(join(app.getAppPath(), 'build', 'icon.png'))
+  if (!img.isEmpty()) app.dock?.setIcon(img)
+}
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -29,6 +37,7 @@ function createWindow(): BrowserWindow {
 }
 
 app.whenReady().then(() => {
+  setDevDockIcon()
   const store = createStore()
   runtime.win = createWindow()
 
