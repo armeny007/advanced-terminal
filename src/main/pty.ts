@@ -67,7 +67,15 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
   }
 
   function writeToTerminal(id: string, data: string): void {
-    ptys.get(id)?.write(data)
+    const p = ptys.get(id)
+    if (!p) return
+    // пользователь отвечает — значит терминал уже не «ждёт ввода»/«разрешение»
+    // (снимаем ложный бейдж; следующий hook Claude уточнит статус)
+    const t = store.getTerminal(id)
+    if (t && (t.status === 'needs_input' || t.status === 'permission')) {
+      store.updateTerminal(id, { status: 'working' })
+    }
+    p.write(data)
   }
 
   store.onChange((s) => send(IPC.stateChanged, s))
