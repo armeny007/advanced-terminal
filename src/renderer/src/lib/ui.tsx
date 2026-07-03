@@ -49,7 +49,7 @@ export function Menu({
       {open && (
         <div className={`menu-pop ${align === 'right' ? 'menu-right' : ''}`}>
           {items.map((it, i) => (
-            <MenuRow key={i} item={it} onClose={() => setOpen(false)} />
+            <MenuRow key={i} item={it} align={align} onClose={() => setOpen(false)} />
           ))}
         </div>
       )}
@@ -57,7 +57,15 @@ export function Menu({
   )
 }
 
-function MenuRow({ item, onClose }: { item: MenuItem; onClose: () => void }): React.JSX.Element {
+function MenuRow({
+  item,
+  align = 'left',
+  onClose
+}: {
+  item: MenuItem
+  align?: 'left' | 'right'
+  onClose: () => void
+}): React.JSX.Element {
   const [subOpen, setSubOpen] = useState(false)
   if (item.submenu) {
     return (
@@ -67,11 +75,12 @@ function MenuRow({ item, onClose }: { item: MenuItem; onClose: () => void }): Re
         onMouseLeave={() => setSubOpen(false)}
       >
         <span>{item.label}</span>
-        <span className="sub-arrow">›</span>
+        {/* у right-меню подменю открываем влево, иначе уходит за край экрана */}
+        <span className="sub-arrow">{align === 'right' ? '‹' : '›'}</span>
         {subOpen && (
-          <div className="menu-pop submenu">
+          <div className={`menu-pop submenu ${align === 'right' ? 'submenu-left' : ''}`}>
             {item.submenu.map((s, i) => (
-              <MenuRow key={i} item={s} onClose={onClose} />
+              <MenuRow key={i} item={s} align={align} onClose={onClose} />
             ))}
           </div>
         )}

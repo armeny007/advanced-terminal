@@ -569,6 +569,10 @@ textarea:focus {
   top: -4px;
   left: 100%;
 }
+.menu-pop.submenu.submenu-left {
+  left: auto;
+  right: 100%;
+}
 .menu-item {
   display: flex;
   align-items: center;
