@@ -1,5 +1,6 @@
 {
   "name": "advanced-terminal",
+  "productName": "Advanced Terminal",
   "version": "0.1.0",
   "description": "Менеджер именованных bash-терминалов с привязкой сессий Claude Code",
   "main": "out/main/index.js",

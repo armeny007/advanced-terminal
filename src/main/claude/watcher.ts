@@ -19,6 +19,12 @@ interface EventPayload {
 let processing = false
 let pending = false
 
+// время последнего события по терминалу — для отлова «зависшего» working
+const lastActivity = new Map<string, number>()
+// если сессия оборвалась (например, лимит usage) и Stop не пришёл — через это
+// время статус working опускаем до idle, чтобы точка не мигала вечно
+const STALE_WORKING_MS = 180_000
+
 export function startWatcher(store: Store): void {
   try {
     const w = watch(EVENTS_DIR, () => void scan(store))
@@ -28,9 +34,34 @@ export function startWatcher(store: Store): void {
   }
   // периодический поллинг: fs.watch иногда пропускает события (особенно под
   // нагрузкой из многих сессий) — иначе статус может «зависнуть» на working
-  setInterval(() => void scan(store), 1000)
+  setInterval(() => {
+    void scan(store)
+    reapStaleWorking(store)
+  }, 1000)
   // обработать файлы, накопившиеся до старта
   void scan(store)
+}
+
+/** Опустить до idle терминалы, «застрявшие» в working без событий (Stop не пришёл) */
+function reapStaleWorking(store: Store): void {
+  const now = Date.now()
+  for (const t of store.getState().terminals) {
+    if (t.status !== 'working') continue
+    const last = lastActivity.get(t.id)
+    if (last === undefined) {
+      lastActivity.set(t.id, now) // не видели активности — даём отсрочку
+      continue
+    }
+    if (now - last > STALE_WORKING_MS) {
+      store.updateTerminal(t.id, { status: 'idle' })
+      send(IPC.claudeStatus, {
+        termId: t.id,
+        status: 'idle',
+        sessionId: t.claudeSessionId,
+        hookEvent: 'stale-timeout'
+      })
+    }
+  }
 }
 
 /** Последовательно обрабатывает все файлы спула; повторные вызовы во время работы — один ре-скан */
@@ -87,6 +118,7 @@ async function processFile(store: Store, fileName: string, terminated: Set<strin
   const term = store.getTerminal(termId)
   if (!term) return // терминал уже удалён
 
+  lastActivity.set(termId, Date.now()) // любое событие = признак активности
   const prev = term.status
   let status: ClaudeStatus
   const patch: Partial<TermInfo> = {}
