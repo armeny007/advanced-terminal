@@ -421,10 +421,12 @@ textarea:focus {
   margin-left: 6px;
   overflow-x: auto;
   min-width: 0;
-  flex: 1;
+  /* по содержимому: занимают сколько нужно, скроллятся только при переполнении
+     (spacer добирает остаток; НЕ flex:1 — иначе делят бар со spacer пополам) */
+  flex: 0 1 auto;
 }
 .folder-chips::-webkit-scrollbar {
-  height: 0;
+  height: 5px;
 }
 .chip-tile {
   flex-shrink: 0;
@@ -434,6 +436,7 @@ textarea:focus {
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
+  max-width: 200px;
   background: var(--surface2);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -445,6 +448,11 @@ textarea:focus {
 .term-chip:hover {
   border-color: var(--accent);
   background: #262636;
+}
+.chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .term-cwd {
   color: var(--muted);

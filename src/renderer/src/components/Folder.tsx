@@ -72,7 +72,7 @@ export function Folder({
                     className={`dot ${statusPulses(t.status) ? 'pulse' : ''}`}
                     style={{ background: STATUS_COLOR[t.status] }}
                   />
-                  {t.name}
+                  <span className="chip-name">{t.name}</span>
                 </button>
               ))}
           </div>
