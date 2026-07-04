@@ -192,8 +192,22 @@ export function TerminalCard({
     if (v && v !== term.name) window.api.renameTerminal(term.id, v)
   }
 
+  // перезапуск сессии Claude: свежий shell + сразу claude --resume той же сессии
+  // (Claude при старте перерисовывает экран, поэтому стартовые сообщения shell не мешают)
+  const restartClaudeSession = async (): Promise<void> => {
+    if (!term.claudeSessionId) return
+    const sid = term.claudeSessionId
+    await window.api.restartTerminal(term.id)
+    setTimeout(() => window.api.runClaude(term.id, 'resume', sid), 400)
+  }
+
   const claudeItems: MenuItem[] = [
     { label: 'Новая сессия…', onClick: () => onNewClaudeSession(term) },
+    {
+      label: 'Перезапустить сессию',
+      disabled: !term.claudeSessionId,
+      onClick: restartClaudeSession
+    },
     { label: 'Продолжить последнюю', onClick: () => window.api.runClaude(term.id, 'continue') },
     {
       label: 'Возобновить привязанную',

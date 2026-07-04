@@ -71,7 +71,8 @@ app.setName(APP_NAME)
 // бы папку данных (advanced-terminal -> «Advanced Terminal») и потерял состояние.
 // Закрепляем userData на стабильном имени, чтобы состояние (state.json с
 // терминалами/сессиями) не зависело от отображаемого имени и не терялось.
-app.setPath('userData', join(app.getPath('appData'), 'advanced-terminal'))
+// ADVTERM_USERDATA позволяет изолировать данные (напр. для тестов).
+app.setPath('userData', process.env.ADVTERM_USERDATA || join(app.getPath('appData'), 'advanced-terminal'))
 
 app.whenReady().then(() => {
   app.setAboutPanelOptions({
