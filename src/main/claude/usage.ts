@@ -52,6 +52,11 @@ async function findSessionFile(sessionId: string): Promise<string | null> {
   return null
 }
 
+/** Есть ли беседа с таким sessionId в истории Claude (в любом проекте). */
+export async function sessionFileExists(sessionId: string): Promise<boolean> {
+  return (await findSessionFile(sessionId)) !== null
+}
+
 export async function getUsage(
   _projectPath: string,
   sessionId: string

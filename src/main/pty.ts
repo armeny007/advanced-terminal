@@ -11,6 +11,7 @@ import type { CreateTerminalOpts, PtyManager, Store } from './contracts'
 import { FOLDER_COLORS } from './store'
 import { EVENTS_DIR } from './paths'
 import { runtime, send } from './runtime'
+import { sessionFileExists } from './claude/usage'
 
 /** сколько последних байт вывода держим на терминал (для показа в Telegram) */
 const OUTPUT_BUFFER_MAX = 16_384
@@ -106,12 +107,31 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
       p.write(`claude --session-id ${sid}${extra}\r`)
     } else if (mode === 'resume') {
       if (!sessionId) return
-      store.updateTerminal(id, { claudeSessionId: sessionId })
-      p.write(`claude --resume ${sessionId}${extra}\r`)
+      void resumeIfExists(id, p, sessionId, extra)
     } else {
       // привязка сессии придёт позже через hook SessionStart
       p.write(`claude --continue${extra}\r`)
     }
+  }
+
+  // Возобновление привязанной сессии: сперва проверяем, что беседа ещё жива в
+  // истории Claude. Если её удалили (Claude чистит старые / она не сохранилась),
+  // не запускаем обречённый `claude --resume` (он падает «No conversation found»
+  // и оставляет пустой shell) — сбрасываем мёртвую привязку и подсказываем.
+  async function resumeIfExists(id: string, p: IPty, sessionId: string, extra: string): Promise<void> {
+    if (!(await sessionFileExists(sessionId))) {
+      store.updateTerminal(id, { claudeSessionId: null })
+      send(
+        IPC.termData,
+        id,
+        `\r\n\x1b[33m⚠ Сессия ${sessionId.slice(0, 8)} удалена из истории Claude — привязка сброшена.\r\n` +
+          `  Запустите новую сессию или «Продолжить последнюю».\x1b[0m\r\n`
+      )
+      return
+    }
+    if (ptys.get(id) !== p) return // терминал перезапустили, пока шла проверка
+    store.updateTerminal(id, { claudeSessionId: sessionId })
+    p.write(`claude --resume ${sessionId}${extra}\r`)
   }
 
   function getRecentOutput(id: string): string {
