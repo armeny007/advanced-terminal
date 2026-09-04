@@ -193,6 +193,7 @@ export const IPC = {
   termResize: 'term:resize', // send (id, cols, rows)
   termClose: 'term:close', // invoke (id)
   termRestart: 'term:restart', // invoke (id) => TermInfo — новый shell в том же cwd
+  termSetCwd: 'term:setCwd', // invoke (id, cwd) => TermInfo — новый shell в новом cwd
   termRename: 'term:rename', // invoke (id, name)
   termMoveToFolder: 'term:moveToFolder', // invoke (id, folderId)
   termBindSession: 'term:bindSession', // invoke (id, sessionId | null)
@@ -251,6 +252,7 @@ export interface AdvTermApi {
   resizeTerminal(id: string, cols: number, rows: number): void
   closeTerminal(id: string): Promise<void>
   restartTerminal(id: string): Promise<TermInfo>
+  setTerminalCwd(id: string, cwd: string): Promise<TermInfo | undefined>
   renameTerminal(id: string, name: string): Promise<void>
   moveTerminalToFolder(id: string, folderId: string): Promise<void>
   bindSession(id: string, sessionId: string | null): Promise<void>

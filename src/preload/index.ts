@@ -31,6 +31,7 @@ const api: AdvTermApi = {
   resizeTerminal: (id, cols, rows) => ipcRenderer.send(IPC.termResize, id, cols, rows),
   closeTerminal: (id) => ipcRenderer.invoke(IPC.termClose, id),
   restartTerminal: (id) => ipcRenderer.invoke(IPC.termRestart, id),
+  setTerminalCwd: (id, cwd) => ipcRenderer.invoke(IPC.termSetCwd, id, cwd),
   renameTerminal: (id, name) => ipcRenderer.invoke(IPC.termRename, id, name),
   moveTerminalToFolder: (id, folderId) => ipcRenderer.invoke(IPC.termMoveToFolder, id, folderId),
   bindSession: (id, sessionId) => ipcRenderer.invoke(IPC.termBindSession, id, sessionId),

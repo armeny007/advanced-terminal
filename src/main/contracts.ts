@@ -56,6 +56,8 @@ export interface PtyManager {
   killTerminal(id: string): void
   /** перезапускает shell в том же cwd (тот же id) */
   restartTerminal(id: string): TermInfo | undefined
+  /** меняет рабочую папку терминала: новый shell в новом cwd (тот же id) */
+  setTerminalCwd(id: string, cwd: string): TermInfo | undefined
   /** печатает в pty команду запуска claude (new/resume/continue) */
   runClaude(id: string, mode: RunClaudeMode, sessionId?: string, extraArgs?: string): void
   /** последний вывод терминала (кольцевой буфер), для показа в Telegram */

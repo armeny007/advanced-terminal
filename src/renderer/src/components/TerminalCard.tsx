@@ -53,6 +53,7 @@ export function TerminalCard({
   onToggleMaximize,
   onNewClaudeSession,
   onOpenSessions,
+  onChangeCwd,
   onWorktreeDiff
 }: {
   term: TermInfo
@@ -64,6 +65,7 @@ export function TerminalCard({
   onToggleMaximize?: () => void
   onNewClaudeSession: (term: TermInfo) => void
   onOpenSessions: (bindTermId: string, cwd: string) => void
+  onChangeCwd: (term: TermInfo) => void
   onWorktreeDiff: (term: TermInfo) => void
 }): React.JSX.Element {
   const bodyRef = useRef<HTMLDivElement>(null)
@@ -225,6 +227,7 @@ export function TerminalCard({
     { label: 'Переименовать', onClick: startRename },
     { label: 'Переместить в папку', submenu: moveItems.length ? moveItems : [{ label: '(нет других)', disabled: true }] },
     { label: 'Привязать сессию…', onClick: () => onOpenSessions(term.id, term.cwd) },
+    { label: 'Сменить папку…', onClick: () => onChangeCwd(term) },
     ...(term.worktree
       ? [
           { label: 'Diff worktree', onClick: () => onWorktreeDiff(term) },

@@ -20,6 +20,7 @@ type Modal =
   | { type: 'worktree' }
   | { type: 'diff'; term: TermInfo }
   | { type: 'folderPath' }
+  | { type: 'changeCwd'; term: TermInfo }
   | { type: 'claudeNew'; term: TermInfo }
   | { type: 'telegram' }
   | null
@@ -153,6 +154,7 @@ export default function App({ soloFolderId }: { soloFolderId?: string }): React.
         onNewWorktree={() => setModal({ type: 'worktree' })}
         onNewClaudeSession={(term) => setModal({ type: 'claudeNew', term })}
         onOpenSessions={openSessions}
+        onChangeCwd={(term) => setModal({ type: 'changeCwd', term })}
         onWorktreeDiff={(term) => setModal({ type: 'diff', term })}
       />
     )
@@ -294,6 +296,18 @@ export default function App({ soloFolderId }: { soloFolderId?: string }): React.
           placeholder="/путь/к/папке"
           initial={lastCwd}
           onSubmit={(dir) => newTerminal(dir)}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {modal?.type === 'changeCwd' && (
+        <PromptModal
+          title={`Сменить папку — ${modal.term.name}`}
+          placeholder="/путь/к/папке"
+          initial={modal.term.cwd}
+          onSubmit={(dir) => {
+            const d = dir.trim()
+            if (d) window.api.setTerminalCwd(modal.term.id, d)
+          }}
           onClose={() => setModal(null)}
         />
       )}

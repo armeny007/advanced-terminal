@@ -97,6 +97,14 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
     return store.updateTerminal(id, { alive: true, status: 'none' })
   }
 
+  function setTerminalCwd(id: string, cwd: string): TermInfo | undefined {
+    const t = store.getTerminal(id)
+    if (!t) return undefined
+    killTerminal(id)
+    spawnShell(id, cwd)
+    return store.updateTerminal(id, { cwd, alive: true, status: 'none' })
+  }
+
   function runClaude(id: string, mode: RunClaudeMode, sessionId?: string, extraArgs?: string): void {
     const p = ptys.get(id)
     if (!p) return
@@ -179,6 +187,9 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
     store.removeTerminal(id)
   })
   ipcMain.handle(IPC.termRestart, (_e, id: string): TermInfo | undefined => restartTerminal(id))
+  ipcMain.handle(IPC.termSetCwd, (_e, id: string, cwd: string): TermInfo | undefined =>
+    setTerminalCwd(id, cwd)
+  )
   ipcMain.handle(IPC.termRename, (_e, id: string, name: string) => {
     store.updateTerminal(id, { name })
   })
@@ -224,5 +235,13 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
     setTimeout(() => app.quit(), 200)
   })
 
-  return { createTerminal, writeToTerminal, killTerminal, restartTerminal, runClaude, getRecentOutput }
+  return {
+    createTerminal,
+    writeToTerminal,
+    killTerminal,
+    restartTerminal,
+    setTerminalCwd,
+    runClaude,
+    getRecentOutput
+  }
 }

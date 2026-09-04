@@ -15,6 +15,7 @@ export function Folder({
   onNewWorktree,
   onNewClaudeSession,
   onOpenSessions,
+  onChangeCwd,
   onWorktreeDiff
 }: {
   folder: FolderInfo
@@ -27,6 +28,7 @@ export function Folder({
   onNewWorktree: () => void
   onNewClaudeSession: (term: TermInfo) => void
   onOpenSessions: (bindTermId: string, cwd: string) => void
+  onChangeCwd: (term: TermInfo) => void
   onWorktreeDiff: (term: TermInfo) => void
 }): React.JSX.Element {
   const [maximizedId, setMaximizedId] = useState<string | null>(null)
@@ -102,6 +104,7 @@ export function Folder({
               onToggleMaximize={() => setMaximizedId((prev) => (prev === t.id ? null : t.id))}
               onNewClaudeSession={onNewClaudeSession}
               onOpenSessions={onOpenSessions}
+              onChangeCwd={onChangeCwd}
               onWorktreeDiff={onWorktreeDiff}
             />
           ))}
