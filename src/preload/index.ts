@@ -51,6 +51,13 @@ const api: AdvTermApi = {
   setAutoResumeSessions: (v) => ipcRenderer.invoke(IPC.settingsSetAutoResume, v),
   setClaudeLaunch: (opts) => ipcRenderer.invoke(IPC.settingsSetClaudeLaunch, opts),
 
+  // telegram
+  getTelegramRuntime: () => ipcRenderer.invoke(IPC.telegramGetRuntime),
+  setTelegramToken: (token) => ipcRenderer.invoke(IPC.telegramSetToken, token),
+  patchTelegramSettings: (patch) => ipcRenderer.invoke(IPC.telegramPatchSettings, patch),
+  generateTelegramPairingCode: () => ipcRenderer.invoke(IPC.telegramGenPairing),
+  onTelegramRuntime: (cb) => on(IPC.telegramRuntime, cb as never),
+
   // worktrees (V2)
   listWorktrees: (projectPath) => ipcRenderer.invoke(IPC.wtList, projectPath),
   createWorktreeTerminal: (opts) => ipcRenderer.invoke(IPC.wtCreateTerminal, opts),

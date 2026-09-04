@@ -7,6 +7,7 @@ import { IPC } from '../../shared/types'
 import type { Store } from '../contracts'
 import { EVENTS_DIR } from '../paths'
 import { send } from '../runtime'
+import { emitAttention } from '../attention'
 import { notifyStatus } from './notifications'
 
 interface EventPayload {
@@ -171,5 +172,6 @@ async function processFile(store: Store, fileName: string, terminated: Set<strin
   const completed = hookEvent === 'Stop' && prev === 'working'
   if (status === 'needs_input' || status === 'permission' || completed) {
     notifyStatus(store, termId, term.name, status, ev.message)
+    emitAttention({ termId, status, message: ev.message, completed })
   }
 }

@@ -4,8 +4,15 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'fs'
 import { randomUUID } from 'crypto'
 import { dirname, join } from 'path'
 import type { Store } from './contracts'
-import type { AppState, ClaudeLaunchOptions, FolderInfo, ProjectConfig, TermInfo } from '../shared/types'
-import { DEFAULT_CLAUDE_LAUNCH } from '../shared/types'
+import type {
+  AppState,
+  ClaudeLaunchOptions,
+  FolderInfo,
+  ProjectConfig,
+  TelegramSettings,
+  TermInfo
+} from '../shared/types'
+import { DEFAULT_CLAUDE_LAUNCH, DEFAULT_TELEGRAM } from '../shared/types'
 
 /** Персистируемая часть состояния (hooksInstalled не сохраняется) */
 interface PersistedState {
@@ -15,6 +22,7 @@ interface PersistedState {
   projectConfigs: Record<string, ProjectConfig>
   autoResumeSessions: boolean
   claudeLaunch: ClaudeLaunchOptions
+  telegram: TelegramSettings
 }
 
 const SAVE_DEBOUNCE_MS = 300
@@ -35,7 +43,8 @@ function defaultState(): PersistedState {
     activeFolderId: seed[0].id,
     projectConfigs: {},
     autoResumeSessions: false,
-    claudeLaunch: { ...DEFAULT_CLAUDE_LAUNCH }
+    claudeLaunch: { ...DEFAULT_CLAUDE_LAUNCH },
+    telegram: { ...DEFAULT_TELEGRAM }
   }
 }
 
@@ -57,7 +66,8 @@ function loadState(file: string): PersistedState {
       activeFolderId,
       projectConfigs: raw.projectConfigs && typeof raw.projectConfigs === 'object' ? raw.projectConfigs : {},
       autoResumeSessions: raw.autoResumeSessions === true,
-      claudeLaunch: { ...DEFAULT_CLAUDE_LAUNCH, ...(raw.claudeLaunch ?? {}) }
+      claudeLaunch: { ...DEFAULT_CLAUDE_LAUNCH, ...(raw.claudeLaunch ?? {}) },
+      telegram: { ...DEFAULT_TELEGRAM, ...(raw.telegram ?? {}) }
     }
   } catch {
     return defaultState()
@@ -75,7 +85,8 @@ export function createStore(): Store {
     hooksInstalled: false,
     detachedFolderIds: [],
     autoResumeSessions: persisted.autoResumeSessions,
-    claudeLaunch: persisted.claudeLaunch
+    claudeLaunch: persisted.claudeLaunch,
+    telegram: persisted.telegram
   }
   const projectConfigs = persisted.projectConfigs
 
@@ -93,7 +104,8 @@ export function createStore(): Store {
       activeFolderId: state.activeFolderId,
       projectConfigs,
       autoResumeSessions: state.autoResumeSessions,
-      claudeLaunch: state.claudeLaunch
+      claudeLaunch: state.claudeLaunch,
+      telegram: state.telegram
     }
     try {
       mkdirSync(dirname(file), { recursive: true })
@@ -202,6 +214,10 @@ export function createStore(): Store {
     },
     setClaudeLaunch: (opts) => {
       state.claudeLaunch = opts
+      commit()
+    },
+    setTelegram: (patch) => {
+      state.telegram = { ...state.telegram, ...patch }
       commit()
     },
 

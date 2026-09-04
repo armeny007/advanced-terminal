@@ -815,6 +815,86 @@ textarea:focus {
   font-size: 12px;
 }
 
+/* ---- настройки telegram ---- */
+.btn-tg {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding-left: 10px;
+  padding-right: 10px;
+}
+.btn-tg svg {
+  display: block;
+}
+.tg-spinner {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  margin-right: 6px;
+  vertical-align: -1px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: tg-spin 0.7s linear infinite;
+}
+@keyframes tg-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.tg-hint {
+  font-size: 12px;
+  color: var(--muted, #9399b2);
+  line-height: 1.5;
+  margin: 0;
+}
+.tg-status {
+  font-size: 12px;
+  color: var(--muted, #9399b2);
+}
+.tg-section {
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.tg-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+}
+.tg-pairing {
+  font-size: 12px;
+  line-height: 1.6;
+}
+.tg-accounts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.tg-account {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-family: 'SF Mono', Menlo, monospace;
+}
+.tg-account-x {
+  border: none;
+  background: transparent;
+  color: var(--danger);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0 2px;
+}
+
 /* ---- сессии ---- */
 .session-group {
   margin-bottom: 16px;

@@ -57,6 +57,8 @@ export interface AppState {
   autoResumeSessions: boolean
   /** параметры по умолчанию для новой сессии Claude */
   claudeLaunch: ClaudeLaunchOptions
+  /** настройки Telegram-бота (токен хранится отдельно, зашифрованно) */
+  telegram: TelegramSettings
 }
 
 /** Метаданные прошлой сессии из ~/.claude/projects/<dir>/<uuid>.jsonl */
@@ -118,6 +120,44 @@ export const DEFAULT_CLAUDE_LAUNCH: ClaudeLaunchOptions = {
   custom: ''
 }
 
+/** Персистентные настройки Telegram-бота (без токена — токен хранится зашифрованно отдельно) */
+export interface TelegramSettings {
+  /** включён ли бот */
+  enabled: boolean
+  /** chat id спаренных аккаунтов, которым разрешено управление */
+  allowedChatIds: number[]
+  /** супергруппа с топиками (тема = вкладка); null — режим топиков выключен */
+  groupChatId: number | null
+  /** folderId -> message_thread_id топика в супергруппе */
+  folderTopics: Record<string, number>
+  /** показывать кнопку «хвост вывода» */
+  showOutputTail: boolean
+}
+
+export const DEFAULT_TELEGRAM: TelegramSettings = {
+  enabled: false,
+  allowedChatIds: [],
+  groupChatId: null,
+  folderTopics: {},
+  showOutputTail: true
+}
+
+/** Рантайм-состояние бота для UI настроек (main -> renderer) */
+export interface TelegramRuntimeState {
+  enabled: boolean
+  /** задан ли токен (сам токен наружу не отдаём) */
+  hasToken: boolean
+  /** реально ли запущен polling */
+  running: boolean
+  /** идёт запуск (валидация токена/подключение) — для спиннера */
+  starting: boolean
+  allowedChatIds: number[]
+  groupChatId: number | null
+  showOutputTail: boolean
+  /** последняя ошибка запуска/работы, если есть */
+  error: string | null
+}
+
 /** Событие смены статуса Claude в терминале (main -> renderer) */
 export interface ClaudeStatusEvent {
   termId: string
@@ -172,6 +212,13 @@ export const IPC = {
   settingsSetAutoResume: 'settings:setAutoResume', // invoke (bool)
   settingsSetClaudeLaunch: 'settings:setClaudeLaunch', // invoke (ClaudeLaunchOptions)
 
+  // telegram
+  telegramGetRuntime: 'telegram:getRuntime', // invoke () => TelegramRuntimeState
+  telegramSetToken: 'telegram:setToken', // invoke (token | null) => TelegramRuntimeState
+  telegramPatchSettings: 'telegram:patchSettings', // invoke (Partial<TelegramSettings>) => TelegramRuntimeState
+  telegramGenPairing: 'telegram:genPairing', // invoke () => { code, expiresAt }
+  telegramRuntime: 'telegram:runtime', // on (TelegramRuntimeState)
+
   // worktrees (V2)
   wtList: 'wt:list', // invoke (projectPath) => WorktreeInfo[]
   wtCreateTerminal: 'wt:createTerminal', // invoke ({folderId, projectPath, branch, name?}) => TermInfo
@@ -222,6 +269,13 @@ export interface AdvTermApi {
   onRevealTerm(cb: (termId: string) => void): () => void
   setAutoResumeSessions(v: boolean): Promise<void>
   setClaudeLaunch(opts: ClaudeLaunchOptions): Promise<void>
+
+  // telegram
+  getTelegramRuntime(): Promise<TelegramRuntimeState>
+  setTelegramToken(token: string | null): Promise<TelegramRuntimeState>
+  patchTelegramSettings(patch: Partial<TelegramSettings>): Promise<TelegramRuntimeState>
+  generateTelegramPairingCode(): Promise<{ code: string; expiresAt: number }>
+  onTelegramRuntime(cb: (s: TelegramRuntimeState) => void): () => void
 
   // worktrees (V2)
   listWorktrees(projectPath: string): Promise<WorktreeInfo[]>

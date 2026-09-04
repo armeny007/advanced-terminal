@@ -5,6 +5,8 @@ import type {
   FolderInfo,
   FolderPatch,
   ProjectConfig,
+  RunClaudeMode,
+  TelegramSettings,
   TermInfo,
   WorktreeBinding
 } from '../shared/types'
@@ -29,6 +31,8 @@ export interface Store {
   setFolderDetached(id: string, detached: boolean): void
   setAutoResumeSessions(v: boolean): void
   setClaudeLaunch(opts: ClaudeLaunchOptions): void
+  /** частичное обновление настроек Telegram-бота */
+  setTelegram(patch: Partial<TelegramSettings>): void
 
   getProjectConfig(projectPath: string): ProjectConfig
   setProjectConfig(cfg: ProjectConfig): void
@@ -50,4 +54,10 @@ export interface PtyManager {
   writeToTerminal(id: string, data: string): void
   /** убивает pty; запись в store не трогает */
   killTerminal(id: string): void
+  /** перезапускает shell в том же cwd (тот же id) */
+  restartTerminal(id: string): TermInfo | undefined
+  /** печатает в pty команду запуска claude (new/resume/continue) */
+  runClaude(id: string, mode: RunClaudeMode, sessionId?: string, extraArgs?: string): void
+  /** последний вывод терминала (кольцевой буфер), для показа в Telegram */
+  getRecentOutput(id: string): string
 }

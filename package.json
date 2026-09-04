@@ -1,7 +1,7 @@
 {
   "name": "advanced-terminal",
   "productName": "Advanced Terminal",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Менеджер именованных bash-терминалов с привязкой сессий Claude Code",
   "main": "out/main/index.js",
   "private": true,
@@ -46,7 +46,8 @@
     "@xterm/xterm": "^6.0.0",
     "node-pty": "^1.1.0",
     "react": "^19.2.7",
-    "react-dom": "^19.2.7"
+    "react-dom": "^19.2.7",
+    "telegraf": "^4.16.3"
   },
   "devDependencies": {
     "@types/node": "^26.1.0",

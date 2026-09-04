@@ -4,6 +4,7 @@ import { join } from 'path'
 import { createStore } from './store'
 import { initPty } from './pty'
 import { initClaude } from './claude'
+import { initTelegram } from './telegram'
 import { createMainWindow, initWindows } from './windows'
 
 const APP_NAME = 'Advanced Terminal'
@@ -89,6 +90,7 @@ app.whenReady().then(() => {
   const ptyManager = initPty(ipcMain, store)
   initClaude(ipcMain, store, ptyManager)
   initWindows(ipcMain, store)
+  initTelegram(ipcMain, store, ptyManager)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

@@ -1,18 +1,10 @@
 import { useState } from 'react'
 import type { ClaudeLaunchOptions } from '../../../shared/types'
+import { buildClaudeArgs } from '../../../shared/claude-args'
 import { Modal } from '../lib/ui'
 
-/** Собрать строку аргументов claude из опций */
-export function buildClaudeArgs(o: ClaudeLaunchOptions): string {
-  const parts: string[] = []
-  if (o.chrome) parts.push('--chrome')
-  if (o.autoMode) parts.push('--enable-auto-mode')
-  if (o.skipPermissions) parts.push('--dangerously-skip-permissions')
-  if (o.verbose) parts.push('--verbose')
-  if (o.model) parts.push(`--model ${o.model}`)
-  if (o.custom.trim()) parts.push(o.custom.trim())
-  return parts.join(' ')
-}
+// переэкспорт для существующих импортов (App.tsx)
+export { buildClaudeArgs }
 
 const FLAGS: { key: keyof ClaudeLaunchOptions; flag: string; label: string }[] = [
   { key: 'chrome', flag: '--chrome', label: 'Chrome (браузерная интеграция)' },

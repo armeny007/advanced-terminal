@@ -12,8 +12,13 @@ import { FOLDER_COLORS } from './store'
 import { EVENTS_DIR } from './paths'
 import { runtime, send } from './runtime'
 
+/** сколько последних байт вывода держим на терминал (для показа в Telegram) */
+const OUTPUT_BUFFER_MAX = 16_384
+
 export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
   const ptys = new Map<string, IPty>()
+  // кольцевой буфер последнего вывода по терминалу (сырой, с ANSI)
+  const outputs = new Map<string, string>()
 
   function spawnShell(id: string, cwd: string): void {
     const shell = process.env.SHELL || '/bin/zsh'
@@ -31,7 +36,11 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
       }
     })
     ptys.set(id, p)
-    p.onData((data) => send(IPC.termData, id, data))
+    p.onData((data) => {
+      send(IPC.termData, id, data)
+      const next = (outputs.get(id) ?? '') + data
+      outputs.set(id, next.length > OUTPUT_BUFFER_MAX ? next.slice(next.length - OUTPUT_BUFFER_MAX) : next)
+    })
     p.onExit(({ exitCode }) => {
       // если терминал уже перезапущен/закрыт, этот exit — от старого процесса
       if (ptys.get(id) !== p) return
@@ -45,6 +54,7 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
     const p = ptys.get(id)
     if (!p) return
     ptys.delete(id) // до kill, чтобы onExit не трогал store
+    outputs.delete(id) // старый вывод не смешиваем с новым после перезапуска
     p.kill()
   }
 
@@ -76,6 +86,36 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
       store.updateTerminal(id, { status: 'working' })
     }
     p.write(data)
+  }
+
+  function restartTerminal(id: string): TermInfo | undefined {
+    const t = store.getTerminal(id)
+    if (!t) return undefined
+    killTerminal(id)
+    spawnShell(id, t.cwd)
+    return store.updateTerminal(id, { alive: true, status: 'none' })
+  }
+
+  function runClaude(id: string, mode: RunClaudeMode, sessionId?: string, extraArgs?: string): void {
+    const p = ptys.get(id)
+    if (!p) return
+    const extra = extraArgs && extraArgs.trim() ? ' ' + extraArgs.trim() : ''
+    if (mode === 'new') {
+      const sid = randomUUID()
+      store.updateTerminal(id, { claudeSessionId: sid })
+      p.write(`claude --session-id ${sid}${extra}\r`)
+    } else if (mode === 'resume') {
+      if (!sessionId) return
+      store.updateTerminal(id, { claudeSessionId: sessionId })
+      p.write(`claude --resume ${sessionId}${extra}\r`)
+    } else {
+      // привязка сессии придёт позже через hook SessionStart
+      p.write(`claude --continue${extra}\r`)
+    }
+  }
+
+  function getRecentOutput(id: string): string {
+    return outputs.get(id) ?? ''
   }
 
   store.onChange((s) => send(IPC.stateChanged, s))
@@ -118,13 +158,7 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
     killTerminal(id)
     store.removeTerminal(id)
   })
-  ipcMain.handle(IPC.termRestart, (_e, id: string): TermInfo | undefined => {
-    const t = store.getTerminal(id)
-    if (!t) return undefined
-    killTerminal(id)
-    spawnShell(id, t.cwd)
-    return store.updateTerminal(id, { alive: true, status: 'none' })
-  })
+  ipcMain.handle(IPC.termRestart, (_e, id: string): TermInfo | undefined => restartTerminal(id))
   ipcMain.handle(IPC.termRename, (_e, id: string, name: string) => {
     store.updateTerminal(id, { name })
   })
@@ -136,23 +170,8 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
   })
   ipcMain.handle(
     IPC.termRunClaude,
-    (_e, id: string, mode: RunClaudeMode, sessionId?: string, extraArgs?: string) => {
-      const p = ptys.get(id)
-      if (!p) return
-      const extra = extraArgs && extraArgs.trim() ? ' ' + extraArgs.trim() : ''
-      if (mode === 'new') {
-        const sid = randomUUID()
-        store.updateTerminal(id, { claudeSessionId: sid })
-        p.write(`claude --session-id ${sid}${extra}\r`)
-      } else if (mode === 'resume') {
-        if (!sessionId) return
-        store.updateTerminal(id, { claudeSessionId: sessionId })
-        p.write(`claude --resume ${sessionId}${extra}\r`)
-      } else {
-        // привязка сессии придёт позже через hook SessionStart
-        p.write(`claude --continue${extra}\r`)
-      }
-    }
+    (_e, id: string, mode: RunClaudeMode, sessionId?: string, extraArgs?: string) =>
+      runClaude(id, mode, sessionId, extraArgs)
   )
 
   // --- ui / настройки ---
@@ -164,10 +183,26 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
     store.setClaudeLaunch(opts)
   )
 
-  app.on('before-quit', () => {
-    for (const p of ptys.values()) p.kill()
+  // node-pty на выходе иногда роняет процесс с SIGABRT: его threadsafe-колбэк
+  // (onExit/onData из pty.node) дёргается уже во время сноса Node-окружения
+  // (node::FreeEnvironment) и кидает исключение → std::terminate → abort
+  // («Electron quit unexpectedly»). Поэтому на первом before-quit отменяем выход,
+  // глушим все pty и даём их потокам завершиться, затем выходим по-настоящему.
+  let ptysDisposed = false
+  app.on('before-quit', (e) => {
+    if (ptysDisposed || ptys.size === 0) return
+    e.preventDefault()
+    ptysDisposed = true
+    for (const p of ptys.values()) {
+      try {
+        p.kill()
+      } catch {
+        // pty мог уже умереть
+      }
+    }
     ptys.clear()
+    setTimeout(() => app.quit(), 200)
   })
 
-  return { createTerminal, writeToTerminal, killTerminal }
+  return { createTerminal, writeToTerminal, killTerminal, restartTerminal, runClaude, getRecentOutput }
 }

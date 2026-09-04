@@ -12,6 +12,7 @@ import type { SearchResult } from './components/GlobalSearch'
 import { WorktreeDialog } from './components/WorktreeDialog'
 import { DiffModal } from './components/DiffModal'
 import { ClaudeFlagsDialog, buildClaudeArgs } from './components/ClaudeFlagsDialog'
+import { TelegramSettings } from './components/TelegramSettings'
 import { PromptModal } from './lib/ui'
 
 type Modal =
@@ -20,6 +21,7 @@ type Modal =
   | { type: 'diff'; term: TermInfo }
   | { type: 'folderPath' }
   | { type: 'claudeNew'; term: TermInfo }
+  | { type: 'telegram' }
   | null
 
 /** soloFolderId задан у окна отдельной папки (режим одной папки без вкладок) */
@@ -183,6 +185,7 @@ export default function App({ soloFolderId }: { soloFolderId?: string }): React.
           view={view}
           onSetView={setView}
           onOpenSessions={() => setModal({ type: 'sessions', bindTermId: null, filterCwd: null })}
+          onOpenSettings={() => setModal({ type: 'telegram' })}
           search={search}
           onSearchChange={(v) => {
             setSearch(v)
@@ -284,6 +287,7 @@ export default function App({ soloFolderId }: { soloFolderId?: string }): React.
         />
       )}
       {modal?.type === 'diff' && <DiffModal term={modal.term} onClose={() => setModal(null)} />}
+      {modal?.type === 'telegram' && <TelegramSettings onClose={() => setModal(null)} />}
       {modal?.type === 'folderPath' && (
         <PromptModal
           title="Новый терминал в папке"
