@@ -5,6 +5,7 @@
 // Файлы бывают >100 МБ, поэтому читаем только хвост.
 import { open, stat } from 'fs/promises'
 import { findSessionFile } from '../claude/usage'
+import { stripAnsi } from './output'
 
 const TAIL_BYTES = 2 * 1024 * 1024
 const MAX_MESSAGES = 6
@@ -26,7 +27,23 @@ function textOf(content: unknown): string {
   return parts.join('\n')
 }
 
-/** Служебное (команды, caveat, «продолжение после compact») — не показываем */
+/**
+ * Локальная команда Claude Code в транскрипте — отдельные записи роли user:
+ * вызов `<command-name>/model</command-name>…<command-args>…</command-args>`
+ * и её вывод `<local-command-stdout>…</local-command-stdout>` (может содержать ANSI).
+ */
+function localCommand(t: string): { kind: 'invoke' | 'stdout'; text: string } | null {
+  const out = /^<local-command-stdout>([\s\S]*?)<\/local-command-stdout>/.exec(t.trim())
+  if (out) return { kind: 'stdout', text: stripAnsi(out[1] ?? '').trim() }
+  const name = /<command-name>([\s\S]*?)<\/command-name>/.exec(t)
+  if (name) {
+    const args = (/<command-args>([\s\S]*?)<\/command-args>/.exec(t)?.[1] ?? '').trim()
+    return { kind: 'invoke', text: `${(name[1] ?? '').trim()}${args ? ' ' + args : ''}` }
+  }
+  return null
+}
+
+/** Служебное (caveat, «продолжение после compact», нераспознанные теги) — не показываем */
 function isNoise(t: string): boolean {
   const s = t.trim()
   return (
@@ -51,14 +68,27 @@ async function readTail(file: string): Promise<{ chunk: string; truncated: boole
   }
 }
 
-/** Последние сообщения сессии как «👤 …» / «🤖 …»; null — если сессии или текста нет */
+/**
+ * Последние сообщения сессии: «👤 …», «🤖 …», а результаты команд Claude Code —
+ * «⚙️ /model sonnet — Set model to …». null — если сессии или текста нет.
+ */
 export async function sessionTail(sessionId: string, maxChars = 3500): Promise<string | null> {
   const file = await findSessionFile(sessionId)
   if (!file) return null
   const { chunk, truncated } = await readTail(file)
   const lines = chunk.split('\n')
   if (truncated) lines.shift() // первая строка могла быть разрезана посередине
+  // идём с конца, msgs копится в обратном порядке — в конце разворачиваем
   const msgs: string[] = []
+  // вывод команды лежит ПОСЛЕ её вызова, а с конца мы видим его первым —
+  // придерживаем, чтобы склеить с вызовом в одну строку
+  let pendingStdout: string | null = null
+  const flush = (): void => {
+    if (pendingStdout !== null) {
+      msgs.push(`⚙️ ${pendingStdout}`)
+      pendingStdout = null
+    }
+  }
   for (let i = lines.length - 1; i >= 0 && msgs.length < MAX_MESSAGES; i--) {
     const ln = lines[i]
     if (!ln) continue
@@ -72,9 +102,22 @@ export async function sessionTail(sessionId: string, maxChars = 3500): Promise<s
     const role = o.message?.role
     if (role !== 'user' && role !== 'assistant') continue
     const t = textOf(o.message?.content)
+    const cmd = role === 'user' ? localCommand(t) : null
+    if (cmd?.kind === 'stdout') {
+      flush() // два вывода подряд — предыдущий отдаём как есть
+      if (cmd.text) pendingStdout = cmd.text
+      continue
+    }
+    if (cmd?.kind === 'invoke') {
+      msgs.push(pendingStdout !== null ? `⚙️ ${cmd.text} — ${pendingStdout}` : `⚙️ ${cmd.text}`)
+      pendingStdout = null
+      continue
+    }
     if (isNoise(t)) continue
+    flush()
     msgs.push(`${role === 'user' ? '👤' : '🤖'} ${t.trim()}`)
   }
+  flush()
   if (msgs.length === 0) return null
   let out = msgs.reverse().join('\n\n')
   if (out.length > maxChars) out = '…' + out.slice(out.length - maxChars)
