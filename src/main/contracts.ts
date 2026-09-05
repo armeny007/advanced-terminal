@@ -52,6 +52,8 @@ export interface PtyManager {
   /** создаёт запись в store и запускает shell */
   createTerminal(opts: CreateTerminalOpts): TermInfo
   writeToTerminal(id: string, data: string): void
+  /** запись в pty без изменения статуса (стрелки/навигация по меню — не ответ) */
+  writeRaw(id: string, data: string): void
   /** убивает pty; запись в store не трогает */
   killTerminal(id: string): void
   /** перезапускает shell в том же cwd (тот же id) */

@@ -18,13 +18,15 @@ const HELP = [
   '',
   'Кнопки на карточке сессии:',
   '✍️ Ответить — следующее сообщение уйдёт в сессию как есть: промпт, команда Claude Code (/model, /usage, /compact…) или shell через «! команда»',
-  '✅ Да — Enter (подтвердить / выбрать по умолчанию)',
+  '✅ Да — Enter (подтвердить / выбрать подсвеченный пункт меню)',
   '❌ Нет — Esc (отмена)',
   '🆕 Новая — новая сессия Claude в этом терминале',
   '⏸ Продолжить — claude --continue (продолжить последнюю)',
   '♻️ Перезапуск — перезапустить shell терминала',
   '▶️ Возобновить привязанную — claude --resume привязанной сессии',
   '📄 Вывод — последние сообщения сессии (из транскрипта); без сессии — хвост терминала',
+  '⬆️ ⬇️ — стрелки в интерактивном меню Claude (/model, /resume…); после нажатия придёт экран',
+  '🖥 Экран — что сейчас на экране терминала: видно меню и подсказки (в отличие от «Вывода»)',
   '⬅️ Назад — к списку терминалов вкладки'
 ].join('\n')
 
@@ -264,6 +266,17 @@ export function createBot(token: string, deps: ActionDeps): Telegraf {
         if (v) await editOrReply(ctx, v.text, v.keyboard)
         return
       }
+      case 'up':
+      case 'down':
+        A.arrow(deps, id, op === 'up' ? 'up' : 'down')
+        await ctx.answerCbQuery(op === 'up' ? '↑' : '↓')
+        // дать TUI перерисоваться — и показать, куда встал курсор
+        await new Promise((r) => setTimeout(r, 300))
+        await ctx.reply(`<pre>${escapeHtml(A.screenTail(deps, id))}</pre>`, { parse_mode: 'HTML' })
+        return
+      case 'screen':
+        await ctx.reply(`<pre>${escapeHtml(A.screenTail(deps, id))}</pre>`, { parse_mode: 'HTML' })
+        return
       case 'out': {
         const { text, mono } = await A.outputTail(deps, id)
         // транскрипт — обычным текстом (читаемо на телефоне), сырой хвост — моноширинно

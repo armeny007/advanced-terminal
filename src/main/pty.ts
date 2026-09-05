@@ -89,6 +89,11 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
     p.write(data)
   }
 
+  // навигация по TUI-меню (стрелки) — не ответ, статус «ждёт ввода»/«разрешение» не снимаем
+  function writeRaw(id: string, data: string): void {
+    ptys.get(id)?.write(data)
+  }
+
   function restartTerminal(id: string): TermInfo | undefined {
     const t = store.getTerminal(id)
     if (!t) return undefined
@@ -238,6 +243,7 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
   return {
     createTerminal,
     writeToTerminal,
+    writeRaw,
     killTerminal,
     restartTerminal,
     setTerminalCwd,

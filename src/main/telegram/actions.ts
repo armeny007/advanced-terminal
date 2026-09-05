@@ -18,6 +18,16 @@ export function sendPrompt({ pty }: ActionDeps, termId: string, text: string): v
   pty.writeToTerminal(termId, text + CR)
 }
 
+/** Стрелка в интерактивном меню Claude (/model, /resume…); статус не трогаем — это навигация */
+export function arrow({ pty }: ActionDeps, termId: string, dir: 'up' | 'down'): void {
+  pty.writeRaw(termId, ESC + (dir === 'up' ? '[A' : '[B'))
+}
+
+/** Сырой экран терминала (последний вывод, моноширинно) — тут видно TUI-меню и подсказки */
+export function screenTail({ pty }: ActionDeps, termId: string): string {
+  return formatOutputTail(pty.getRecentOutput(termId))
+}
+
 /** Быстрый ответ на запрос: Да = Enter (принять/по умолчанию), Нет = Esc (отмена) */
 export function quickAnswer({ pty }: ActionDeps, termId: string, yes: boolean): void {
   pty.writeToTerminal(termId, yes ? CR : ESC)

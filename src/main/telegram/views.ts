@@ -102,6 +102,12 @@ export function terminalKeyboard(store: Store, termId: string): Keyboard {
       Markup.button.callback('🆕 Новая', `a:new:${termId}`),
       Markup.button.callback('⏸ Продолжить', `a:cont:${termId}`),
       Markup.button.callback('♻️ Перезапуск', `a:restart:${termId}`)
+    ],
+    // навигация по интерактивным меню Claude (/model, /resume, многовариантные разрешения)
+    [
+      Markup.button.callback('⬆️', `a:up:${termId}`),
+      Markup.button.callback('⬇️', `a:down:${termId}`),
+      Markup.button.callback('🖥 Экран', `a:screen:${termId}`)
     ]
   ]
   if (t?.claudeSessionId) {
