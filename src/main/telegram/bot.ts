@@ -17,7 +17,7 @@ const HELP = [
   '/help — эта справка',
   '',
   'Кнопки на карточке сессии:',
-  '✍️ Ответить — отправить текст/промпт в сессию (следующим сообщением)',
+  '✍️ Ответить — следующее сообщение уйдёт в сессию как есть: промпт, команда Claude Code (/model, /usage, /compact…) или shell через «! команда»',
   '✅ Да — Enter (подтвердить / выбрать по умолчанию)',
   '❌ Нет — Esc (отмена)',
   '🆕 Новая — новая сессия Claude в этом терминале',
@@ -63,6 +63,13 @@ export function createBot(token: string, deps: ActionDeps): Telegraf {
     const { folderTopics } = store.getState().telegram
     return Object.keys(folderTopics).find((fid) => folderTopics[fid] === threadId)
   }
+  // человекочитаемая метка терминала-цели: «имя» (папка) — чтобы было видно, куда уйдёт текст
+  const termLabel = (termId: string): string => {
+    const t = store.getTerminal(termId)
+    if (!t) return 'сессию'
+    const folder = store.getState().folders.find((f) => f.id === t.folderId)
+    return folder ? `«${t.name}» (${folder.name})` : `«${t.name}»`
+  }
 
   // авторизация: всех, кроме спаренных, пускаем только на /start (для сопряжения)
   bot.use(async (ctx, next) => {
@@ -80,6 +87,27 @@ export function createBot(token: string, deps: ActionDeps): Telegraf {
         // нет прав ответить в этот чат — не критично
       }
     }
+  })
+
+  // Режим ответа. Стоит ДО обработчиков команд бота: пока цель армирована, следующее
+  // сообщение уходит в сессию ДОСЛОВНО — в т.ч. команды Claude Code (/model, /usage,
+  // /compact, /status…) и shell через `! cmd`. Иначе /status, /help, /menu перехватил бы сам бот.
+  bot.use(async (ctx, next) => {
+    const uid = ctx.from?.id
+    const text = msgText(ctx)
+    if (uid == null || !text) return next()
+    const target = replyTargets.get(uid)
+    if (!target) return next()
+    replyTargets.delete(uid)
+    if (!store.getTerminal(target)) {
+      await ctx.reply('Терминал уже не существует.')
+      return
+    }
+    // в группах Telegram дописывает к /команде суффикс @ИмяБота — Claude его не поймёт
+    const clean = text.replace(/^(\/\w+)@\w+/, '$1')
+    const label = termLabel(target)
+    A.sendPrompt(deps, target, clean)
+    await ctx.reply(`📨 Отправлено в ${label}.`)
   })
 
   async function handleStart(ctx: Context): Promise<void> {
@@ -146,19 +174,7 @@ export function createBot(token: string, deps: ActionDeps): Telegraf {
       return
     }
     if (/^\/bindgroup(\s|$)/.test(text)) return handleBindgroup(ctx)
-
-    // режим ответа: следующий текст уходит в выбранную сессию
-    const uid = ctx.from?.id
-    if (uid == null) return
-    const target = replyTargets.get(uid)
-    if (!target) return
-    replyTargets.delete(uid)
-    if (!store.getTerminal(target)) {
-      await ctx.reply('Терминал уже не существует.')
-      return
-    }
-    A.sendPrompt(deps, target, text)
-    await ctx.reply('📨 Отправлено в сессию.')
+    // прочий текст без армированной цели игнорируем (режим ответа — в middleware выше)
   })
 
   bot.catch((err) => console.error('telegram bot error:', err))
@@ -210,7 +226,9 @@ export function createBot(token: string, deps: ActionDeps): Telegraf {
       case 'reply':
         if (ctx.from?.id != null) replyTargets.set(ctx.from.id, id)
         await ctx.answerCbQuery('Пришлите текст ответа сообщением')
-        await ctx.reply('✍️ Отправьте следующим сообщением текст для сессии.')
+        await ctx.reply(
+          `✍️ Следующее сообщение уйдёт в ${termLabel(id)} как есть — промпт, команда Claude (/model, /usage…) или «! shell».`
+        )
         return
       case 'yes':
         A.quickAnswer(deps, id, true)
