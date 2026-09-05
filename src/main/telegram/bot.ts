@@ -24,7 +24,7 @@ const HELP = [
   '⏸ Продолжить — claude --continue (продолжить последнюю)',
   '♻️ Перезапуск — перезапустить shell терминала',
   '▶️ Возобновить привязанную — claude --resume привязанной сессии',
-  '📄 Вывод — показать хвост вывода терминала',
+  '📄 Вывод — последние сообщения сессии (из транскрипта); без сессии — хвост терминала',
   '⬅️ Назад — к списку терминалов вкладки'
 ].join('\n')
 
@@ -265,8 +265,10 @@ export function createBot(token: string, deps: ActionDeps): Telegraf {
         return
       }
       case 'out': {
-        const tail = A.outputTail(deps, id)
-        await ctx.reply(`<pre>${escapeHtml(tail)}</pre>`, { parse_mode: 'HTML' })
+        const { text, mono } = await A.outputTail(deps, id)
+        // транскрипт — обычным текстом (читаемо на телефоне), сырой хвост — моноширинно
+        if (mono) await ctx.reply(`<pre>${escapeHtml(text)}</pre>`, { parse_mode: 'HTML' })
+        else await ctx.reply(text)
         return
       }
       default:

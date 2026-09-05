@@ -33,7 +33,7 @@ function pickPrice(model: string): { price: typeof FALLBACK_PRICE; known: boolea
   return { price: FALLBACK_PRICE, known: false }
 }
 
-async function findSessionFile(sessionId: string): Promise<string | null> {
+export async function findSessionFile(sessionId: string): Promise<string | null> {
   let subs: string[]
   try {
     subs = await readdir(CLAUDE_PROJECTS_DIR)

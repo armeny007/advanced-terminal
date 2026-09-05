@@ -3,6 +3,7 @@
 import { buildClaudeArgs } from '../../shared/claude-args'
 import type { PtyManager, Store } from '../contracts'
 import { formatOutputTail } from './output'
+import { sessionTail } from './transcript'
 
 const CR = String.fromCharCode(13) // Enter (\r)
 const ESC = String.fromCharCode(27) // Escape
@@ -46,7 +47,18 @@ export function createTerminal({ pty }: ActionDeps, folderId: string): string {
   return pty.createTerminal({ folderId }).id
 }
 
-/** Готовый к отправке хвост вывода терминала */
-export function outputTail({ pty }: ActionDeps, termId: string): string {
-  return formatOutputTail(pty.getRecentOutput(termId))
+/**
+ * «Вывод»: последние сообщения привязанной сессии из транскрипта (надёжно, читаемо);
+ * если сессии/транскрипта нет — сырой хвост терминала (mono = показывать моноширинно).
+ */
+export async function outputTail(
+  { store, pty }: ActionDeps,
+  termId: string
+): Promise<{ text: string; mono: boolean }> {
+  const t = store.getTerminal(termId)
+  if (t?.claudeSessionId) {
+    const tail = await sessionTail(t.claudeSessionId)
+    if (tail) return { text: tail, mono: false }
+  }
+  return { text: formatOutputTail(pty.getRecentOutput(termId)), mono: true }
 }
