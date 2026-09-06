@@ -13,9 +13,17 @@ export interface ActionDeps {
   pty: PtyManager
 }
 
-/** Отправить текст как ввод/промпт в сессию */
+/**
+ * Отправить текст как ввод/промпт в сессию. Текст и Enter шлём РАЗДЕЛЬНО: если \r
+ * приходит в одном чанке с текстом, TUI Claude Code считает это вставкой (paste) и
+ * вставляет перенос строки вместо отправки — промпт зависает в строке ввода.
+ * Многострочный текст оборачиваем в bracketed paste, чтобы переносы внутри него
+ * не сработали как Enter.
+ */
 export function sendPrompt({ pty }: ActionDeps, termId: string, text: string): void {
-  pty.writeToTerminal(termId, text + CR)
+  const body = text.includes('\n') ? `${ESC}[200~${text}${ESC}[201~` : text
+  pty.writeToTerminal(termId, body)
+  setTimeout(() => pty.writeToTerminal(termId, CR), 150)
 }
 
 /** Стрелка в интерактивном меню Claude (/model, /resume…); статус не трогаем — это навигация */
