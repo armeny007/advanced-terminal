@@ -228,6 +228,7 @@ export function TerminalCard({
     { label: 'Переместить в папку', submenu: moveItems.length ? moveItems : [{ label: '(нет других)', disabled: true }] },
     { label: 'Привязать сессию…', onClick: () => onOpenSessions(term.id, term.cwd) },
     { label: 'Сменить папку…', onClick: () => onChangeCwd(term) },
+    { label: 'В архив', onClick: () => window.api.setTerminalArchived(term.id, true) },
     ...(term.worktree
       ? [
           { label: 'Diff worktree', onClick: () => onWorktreeDiff(term) },

@@ -43,6 +43,8 @@ export interface TermInfo {
   createdAt: number
   /** жив ли pty-процесс (false после exit до перезапуска) */
   alive: boolean
+  /** убран в «Архив» вкладки (скрыт из плитки, shell продолжает жить) */
+  archived?: boolean
 }
 
 export interface AppState {
@@ -196,6 +198,7 @@ export const IPC = {
   termSetCwd: 'term:setCwd', // invoke (id, cwd) => TermInfo — новый shell в новом cwd
   termRename: 'term:rename', // invoke (id, name)
   termMoveToFolder: 'term:moveToFolder', // invoke (id, folderId)
+  termSetArchived: 'term:setArchived', // invoke (id, archived) — в архив вкладки / обратно
   termBindSession: 'term:bindSession', // invoke (id, sessionId | null)
   termRunClaude: 'term:runClaude', // invoke (id, mode: RunClaudeMode, sessionId?, extraArgs?)
   termData: 'term:data', // on (id, data)
@@ -255,6 +258,7 @@ export interface AdvTermApi {
   setTerminalCwd(id: string, cwd: string): Promise<TermInfo | undefined>
   renameTerminal(id: string, name: string): Promise<void>
   moveTerminalToFolder(id: string, folderId: string): Promise<void>
+  setTerminalArchived(id: string, archived: boolean): Promise<void>
   bindSession(id: string, sessionId: string | null): Promise<void>
   runClaude(id: string, mode: RunClaudeMode, sessionId?: string, extraArgs?: string): Promise<void>
   onTermData(cb: (id: string, data: string) => void): () => void

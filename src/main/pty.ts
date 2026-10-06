@@ -201,6 +201,9 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
   ipcMain.handle(IPC.termMoveToFolder, (_e, id: string, folderId: string) => {
     store.updateTerminal(id, { folderId })
   })
+  ipcMain.handle(IPC.termSetArchived, (_e, id: string, archived: boolean) => {
+    store.updateTerminal(id, { archived })
+  })
   ipcMain.handle(IPC.termBindSession, (_e, id: string, sessionId: string | null) => {
     store.updateTerminal(id, { claudeSessionId: sessionId })
   })

@@ -34,6 +34,7 @@ const api: AdvTermApi = {
   setTerminalCwd: (id, cwd) => ipcRenderer.invoke(IPC.termSetCwd, id, cwd),
   renameTerminal: (id, name) => ipcRenderer.invoke(IPC.termRename, id, name),
   moveTerminalToFolder: (id, folderId) => ipcRenderer.invoke(IPC.termMoveToFolder, id, folderId),
+  setTerminalArchived: (id, archived) => ipcRenderer.invoke(IPC.termSetArchived, id, archived),
   bindSession: (id, sessionId) => ipcRenderer.invoke(IPC.termBindSession, id, sessionId),
   runClaude: (id, mode, sessionId, extraArgs) =>
     ipcRenderer.invoke(IPC.termRunClaude, id, mode, sessionId, extraArgs),

@@ -77,8 +77,9 @@ export function folderView(store: Store, folderId: string): View {
     lines.push('нет терминалов')
   } else {
     for (const t of terms) {
-      lines.push(`${ICON[t.status]} ${t.name} — ${LABEL[t.status]}`)
-      rows.push([Markup.button.callback(`${ICON[t.status]} ${t.name}`, `t:${t.id}`)])
+      const name = t.archived ? `📦 ${t.name}` : t.name
+      lines.push(`${ICON[t.status]} ${name} — ${LABEL[t.status]}`)
+      rows.push([Markup.button.callback(`${ICON[t.status]} ${name}`, `t:${t.id}`)])
     }
   }
   rows.push([

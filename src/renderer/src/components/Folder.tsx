@@ -32,11 +32,15 @@ export function Folder({
   onWorktreeDiff: (term: TermInfo) => void
 }): React.JSX.Element {
   const [maximizedId, setMaximizedId] = useState<string | null>(null)
-  // развёрнутый терминал мог быть закрыт/перемещён — сбрасываем
-  const maxTerm = terminals.find((t) => t.id === maximizedId)
+  const [archiveOpen, setArchiveOpen] = useState(false)
+  // архивные терминалы живут (xterm смонтирован, shell работает), но в плитке не показываются
+  const shown = terminals.filter((t) => !t.archived)
+  const archived = terminals.filter((t) => t.archived)
+  // развёрнутый терминал мог быть закрыт/перемещён/заархивирован — сбрасываем
+  const maxTerm = shown.find((t) => t.id === maximizedId)
   const effMax = maxTerm ? maximizedId : null
 
-  const cols = effMax ? 1 : terminals.length <= 1 ? 1 : terminals.length <= 4 ? 2 : 3
+  const cols = effMax ? 1 : shown.length <= 1 ? 1 : shown.length <= 4 ? 2 : 3
 
   return (
     <div className="folder" style={{ display: active ? 'flex' : 'none' }}>
@@ -61,7 +65,7 @@ export function Folder({
             <button className="btn small chip-tile" title="Показать все (плитка)" onClick={() => setMaximizedId(null)}>
               ▦ Плитка
             </button>
-            {terminals
+            {shown
               .filter((t) => t.id !== effMax)
               .map((t) => (
                 <button
@@ -80,18 +84,25 @@ export function Folder({
           </div>
         )}
         <span className="spacer" />
-        <span className="muted small">{terminals.length} терм.</span>
+        <span className="muted small">
+          {shown.length} терм.{archived.length > 0 && ` · в архиве ${archived.length}`}
+        </span>
       </div>
 
-      {terminals.length === 0 ? (
-        <div className="empty">
-          <p>В этой папке пока нет терминалов</p>
-          <button className="btn primary" onClick={onNewTerminal}>
-            + Терминал
-          </button>
-        </div>
-      ) : (
-        <div className="term-grid" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
+      <div className="folder-body">
+        {shown.length === 0 ? (
+          <div className="empty">
+            <p>В этой папке пока нет терминалов</p>
+            <button className="btn primary" onClick={onNewTerminal}>
+              + Терминал
+            </button>
+          </div>
+        ) : null}
+        {/* карточки рендерим все (архивные — скрытыми), чтобы xterm не пересоздавался */}
+        <div
+          className="term-grid"
+          style={{ gridTemplateColumns: `repeat(${cols}, 1fr)`, display: shown.length === 0 ? 'none' : undefined }}
+        >
           {terminals.map((t) => (
             <TerminalCard
               key={t.id}
@@ -99,7 +110,7 @@ export function Folder({
               folders={allFolders}
               isActiveFolder={active}
               highlighted={highlightTermId === t.id}
-              hidden={effMax != null && t.id !== effMax}
+              hidden={t.archived || (effMax != null && t.id !== effMax)}
               maximized={t.id === effMax}
               onToggleMaximize={() => setMaximizedId((prev) => (prev === t.id ? null : t.id))}
               onNewClaudeSession={onNewClaudeSession}
@@ -109,7 +120,42 @@ export function Folder({
             />
           ))}
         </div>
-      )}
+
+        {/* правая группа «Архив»: отложенные терминалы вкладки, возвращаются кнопкой.
+            Свёрнута в узкую полоску, чтобы не отнимать место у плитки */}
+        {archived.length > 0 && !archiveOpen && (
+          <button className="folder-archive-strip" title="Показать архив" onClick={() => setArchiveOpen(true)}>
+            <span>📦</span>
+            <span>{archived.length}</span>
+          </button>
+        )}
+        {archived.length > 0 && archiveOpen && (
+          <aside className="folder-archive">
+            <div className="folder-archive-title">
+              <span>📦 Архив</span>
+              <button className="icon-btn" title="Свернуть" onClick={() => setArchiveOpen(false)}>
+                ›
+              </button>
+            </div>
+            {archived.map((t) => (
+              <div key={t.id} className="archive-item" title={`${t.name} — ${STATUS_LABEL[t.status]}\n${t.cwd}`}>
+                <span
+                  className={`dot ${statusPulses(t.status) ? 'pulse' : ''}`}
+                  style={{ background: STATUS_COLOR[t.status] }}
+                />
+                <span className="chip-name">{t.name}</span>
+                <button
+                  className="icon-btn"
+                  title="Вернуть из архива"
+                  onClick={() => window.api.setTerminalArchived(t.id, false)}
+                >
+                  ↩
+                </button>
+              </div>
+            ))}
+          </aside>
+        )}
+      </div>
     </div>
   )
 }

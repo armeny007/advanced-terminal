@@ -361,6 +361,11 @@ textarea:focus {
   gap: 8px;
   padding: 8px 12px;
 }
+.folder-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
 .term-grid {
   flex: 1;
   display: grid;
@@ -453,6 +458,61 @@ textarea:focus {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* правая группа «Архив» во вкладке */
+.folder-archive {
+  width: 200px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 12px 12px 10px;
+  border-left: 1px solid var(--border);
+  overflow-y: auto;
+}
+.folder-archive-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+/* свёрнутый архив — узкая кликабельная полоска у правого края */
+.folder-archive-strip {
+  flex-shrink: 0;
+  width: 26px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-right: none;
+  border-radius: 8px 0 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+.folder-archive-strip:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.archive-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 6px 4px 10px;
+  font-size: 12px;
+}
+.archive-item .chip-name {
+  flex: 1;
 }
 .term-cwd {
   color: var(--muted);
@@ -1011,4 +1071,17 @@ textarea:focus {
 }
 ::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* ---- диктовка в терминале ---- */
+/* xterm держит скрытую textarea размером 0x0 на left:-9999em. Системная диктовка
+   macOS не цепляется к такому полю: ей нужен реальный прямоугольник каретки.
+   Возвращаем textarea в видимую область (невидимой её оставляет opacity: 0). */
+.xterm .xterm-helper-textarea {
+  left: 0 !important;
+  top: 0 !important;
+  width: 12px !important;
+  height: 16px !important;
+  z-index: 0 !important;
+  pointer-events: none;
 }
