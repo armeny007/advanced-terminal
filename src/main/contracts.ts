@@ -46,6 +46,7 @@ export interface CreateTerminalOpts {
   cwd?: string
   name?: string
   worktree?: WorktreeBinding | null
+  sshHost?: string
 }
 
 export interface PtyManager {
@@ -60,6 +61,8 @@ export interface PtyManager {
   restartTerminal(id: string): TermInfo | undefined
   /** меняет рабочую папку терминала: новый shell в новом cwd (тот же id) */
   setTerminalCwd(id: string, cwd: string): TermInfo | undefined
+  /** переносит терминал на ssh-хост (или обратно на локальную машину при null): новый shell */
+  setTerminalSsh(id: string, host: string | null, cwd?: string): TermInfo | undefined
   /** печатает в pty команду запуска claude (new/resume/continue) */
   runClaude(id: string, mode: RunClaudeMode, sessionId?: string, extraArgs?: string): void
   /** последний вывод терминала (кольцевой буфер), для показа в Telegram */

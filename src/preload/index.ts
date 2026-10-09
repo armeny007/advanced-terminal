@@ -32,6 +32,7 @@ const api: AdvTermApi = {
   closeTerminal: (id) => ipcRenderer.invoke(IPC.termClose, id),
   restartTerminal: (id) => ipcRenderer.invoke(IPC.termRestart, id),
   setTerminalCwd: (id, cwd) => ipcRenderer.invoke(IPC.termSetCwd, id, cwd),
+  setTerminalSsh: (id, host, cwd) => ipcRenderer.invoke(IPC.termSetSsh, id, host, cwd),
   renameTerminal: (id, name) => ipcRenderer.invoke(IPC.termRename, id, name),
   moveTerminalToFolder: (id, folderId) => ipcRenderer.invoke(IPC.termMoveToFolder, id, folderId),
   setTerminalArchived: (id, archived) => ipcRenderer.invoke(IPC.termSetArchived, id, archived),

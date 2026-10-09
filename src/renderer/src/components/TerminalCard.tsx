@@ -54,6 +54,7 @@ export function TerminalCard({
   onNewClaudeSession,
   onOpenSessions,
   onChangeCwd,
+  onSetSsh,
   onWorktreeDiff
 }: {
   term: TermInfo
@@ -66,6 +67,7 @@ export function TerminalCard({
   onNewClaudeSession: (term: TermInfo) => void
   onOpenSessions: (bindTermId: string, cwd: string) => void
   onChangeCwd: (term: TermInfo) => void
+  onSetSsh: (term: TermInfo) => void
   onWorktreeDiff: (term: TermInfo) => void
 }): React.JSX.Element {
   const bodyRef = useRef<HTMLDivElement>(null)
@@ -228,6 +230,9 @@ export function TerminalCard({
     { label: 'Переместить в папку', submenu: moveItems.length ? moveItems : [{ label: '(нет других)', disabled: true }] },
     { label: 'Привязать сессию…', onClick: () => onOpenSessions(term.id, term.cwd) },
     { label: 'Сменить папку…', onClick: () => onChangeCwd(term) },
+    term.sshHost
+      ? { label: 'Сделать локальным', onClick: () => window.api.setTerminalSsh(term.id, null) }
+      : { label: 'Перенести на SSH-хост…', onClick: () => onSetSsh(term) },
     { label: 'В архив', onClick: () => window.api.setTerminalArchived(term.id, true) },
     ...(term.worktree
       ? [
@@ -287,6 +292,7 @@ export function TerminalCard({
           </span>
         )}
         <span className="term-cwd">{shortenPath(term.cwd)}</span>
+        {term.sshHost && <span className="badge ssh-badge">⇅ {term.sshHost}</span>}
         {term.worktree && <span className="badge wt-badge">⑂ {term.worktree.branch}</span>}
         {term.claudeSessionId && (
           <span className="badge session-badge" title={term.claudeSessionId}>

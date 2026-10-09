@@ -12,6 +12,8 @@ import { FOLDER_COLORS } from './store'
 import { EVENTS_DIR } from './paths'
 import { runtime, send } from './runtime'
 import { sessionFileExists } from './claude/usage'
+import { getRemoteEventsPort, remotePortFor } from './claude/remoteEvents'
+import { installRemoteHooks } from './claude/remoteHooks'
 
 /** сколько последних байт вывода держим на терминал (для показа в Telegram) */
 const OUTPUT_BUFFER_MAX = 16_384
@@ -21,21 +23,30 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
   // кольцевой буфер последнего вывода по терминалу (сырой, с ANSI)
   const outputs = new Map<string, string>()
 
-  function spawnShell(id: string, cwd: string): void {
-    const shell = process.env.SHELL || '/bin/zsh'
-    const p = pty.spawn(shell, ['-l'], {
-      name: 'xterm-256color',
-      cols: 80,
-      rows: 24,
-      cwd,
-      env: {
-        ...process.env,
-        ADVTERM_TERM_ID: id,
-        ADVTERM_EVENTS_DIR: EVENTS_DIR,
-        TERM: 'xterm-256color',
-        COLORTERM: 'truecolor'
-      }
-    })
+  function spawnShell(id: string, cwd: string, sshHost?: string | null): void {
+    const env = {
+      ...process.env,
+      ADVTERM_TERM_ID: id,
+      ADVTERM_EVENTS_DIR: EVENTS_DIR,
+      TERM: 'xterm-256color',
+      COLORTERM: 'truecolor'
+    }
+    const opts = { name: 'xterm-256color', cols: 80, rows: 24, env }
+    let p: IPty
+    if (sshHost) {
+      // login-shell на удалённом хосте; события hooks возвращаются обратным туннелем
+      // (-R) в локальный HTTP-приёмник, адрес которого hook.sh берёт из ADVTERM_EVENTS_URL
+      const rport = remotePortFor(id)
+      const lport = getRemoteEventsPort()
+      const args = ['-t', '-o', 'ServerAliveInterval=30']
+      if (lport) args.push('-R', `127.0.0.1:${rport}:127.0.0.1:${lport}`)
+      const remoteCmd =
+        `cd ${remoteQuote(cwd)} 2>/dev/null; ` +
+        `export ADVTERM_TERM_ID=${id} ADVTERM_EVENTS_URL=http://127.0.0.1:${rport}/; exec "$SHELL" -l`
+      p = pty.spawn('ssh', [...args, sshHost, remoteCmd], { ...opts, cwd: homedir() })
+    } else {
+      p = pty.spawn(process.env.SHELL || '/bin/zsh', ['-l'], { ...opts, cwd })
+    }
     ptys.set(id, p)
     p.onData((data) => {
       send(IPC.termData, id, data)
@@ -48,6 +59,25 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
       ptys.delete(id)
       store.updateTerminal(id, { alive: false, status: 'none' })
       send(IPC.termExit, id, exitCode)
+    })
+  }
+
+  // путь для `cd` в команде ssh: '~' оставляем голым (раскрывает удалённый shell), остальное — в кавычках
+  function remoteQuote(path: string): string {
+    const q = (s: string): string => `'${s.replace(/'/g, `'\\''`)}'`
+    if (path === '~' || path === '') return '~'
+    if (path.startsWith('~/')) return '~/' + q(path.slice(2))
+    return q(path)
+  }
+
+  // hooks на ssh-хосте ставим при появлении там терминала; результат — в вывод терминала
+  function setupRemoteHooks(id: string, host: string): void {
+    void installRemoteHooks(host).then((r) => {
+      if (!ptys.has(id)) return
+      const msg = r.ok
+        ? `\x1b[32m✓ hooks Claude установлены на ${host}\x1b[0m`
+        : `\x1b[33m⚠ Не удалось установить hooks Claude на ${host}: ${r.error ?? ''}\x1b[0m`
+      send(IPC.termData, id, `\r\n${msg}\r\n`)
     })
   }
 
@@ -65,15 +95,17 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
       id,
       folderId: opts.folderId,
       name: opts.name || `Терминал ${store.getState().terminals.length + 1}`,
-      cwd: opts.cwd || homedir(),
+      cwd: opts.cwd || (opts.sshHost ? '~' : homedir()),
       claudeSessionId: null,
       status: 'none',
       worktree: opts.worktree ?? null,
       createdAt: Date.now(),
-      alive: true
+      alive: true,
+      sshHost: opts.sshHost ?? null
     }
     store.addTerminal(term)
-    spawnShell(id, term.cwd)
+    spawnShell(id, term.cwd, term.sshHost)
+    if (term.sshHost) setupRemoteHooks(id, term.sshHost)
     return term
   }
 
@@ -98,7 +130,7 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
     const t = store.getTerminal(id)
     if (!t) return undefined
     killTerminal(id)
-    spawnShell(id, t.cwd)
+    spawnShell(id, t.cwd, t.sshHost)
     return store.updateTerminal(id, { alive: true, status: 'none' })
   }
 
@@ -106,8 +138,18 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
     const t = store.getTerminal(id)
     if (!t) return undefined
     killTerminal(id)
-    spawnShell(id, cwd)
+    spawnShell(id, cwd, t.sshHost)
     return store.updateTerminal(id, { cwd, alive: true, status: 'none' })
+  }
+
+  function setTerminalSsh(id: string, host: string | null, cwd?: string): TermInfo | undefined {
+    const t = store.getTerminal(id)
+    if (!t) return undefined
+    const nextCwd = cwd || (host ? '~' : homedir())
+    killTerminal(id)
+    spawnShell(id, nextCwd, host)
+    if (host) setupRemoteHooks(id, host)
+    return store.updateTerminal(id, { sshHost: host, cwd: nextCwd, alive: true, status: 'none' })
   }
 
   function runClaude(id: string, mode: RunClaudeMode, sessionId?: string, extraArgs?: string): void {
@@ -132,7 +174,8 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
   // не запускаем обречённый `claude --resume` (он падает «No conversation found»
   // и оставляет пустой shell) — сбрасываем мёртвую привязку и подсказываем.
   async function resumeIfExists(id: string, p: IPty, sessionId: string, extra: string): Promise<void> {
-    if (!(await sessionFileExists(sessionId))) {
+    // история удалённого (ssh) терминала лежит на хосте — локально проверить нельзя
+    if (!store.getTerminal(id)?.sshHost && !(await sessionFileExists(sessionId))) {
       store.updateTerminal(id, { claudeSessionId: null })
       send(
         IPC.termData,
@@ -155,7 +198,7 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
 
   // восстановление раскладки после перезапуска приложения: те же id, новые shell'ы
   for (const t of store.getState().terminals) {
-    spawnShell(t.id, t.cwd)
+    spawnShell(t.id, t.cwd, t.sshHost)
     store.updateTerminal(t.id, { alive: true })
   }
 
@@ -194,6 +237,9 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
   ipcMain.handle(IPC.termRestart, (_e, id: string): TermInfo | undefined => restartTerminal(id))
   ipcMain.handle(IPC.termSetCwd, (_e, id: string, cwd: string): TermInfo | undefined =>
     setTerminalCwd(id, cwd)
+  )
+  ipcMain.handle(IPC.termSetSsh, (_e, id: string, host: string | null, cwd?: string) =>
+    setTerminalSsh(id, host, cwd)
   )
   ipcMain.handle(IPC.termRename, (_e, id: string, name: string) => {
     store.updateTerminal(id, { name })
@@ -250,6 +296,7 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
     killTerminal,
     restartTerminal,
     setTerminalCwd,
+    setTerminalSsh,
     runClaude,
     getRecentOutput
   }

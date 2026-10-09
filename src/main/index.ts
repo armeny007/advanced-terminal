@@ -4,6 +4,7 @@ import { join } from 'path'
 import { createStore } from './store'
 import { initPty } from './pty'
 import { initClaude } from './claude'
+import { startRemoteEventsServer } from './claude/remoteEvents'
 import { initTelegram } from './telegram'
 import { createMainWindow, initWindows } from './windows'
 
@@ -75,7 +76,7 @@ app.setName(APP_NAME)
 // ADVTERM_USERDATA позволяет изолировать данные (напр. для тестов).
 app.setPath('userData', process.env.ADVTERM_USERDATA || join(app.getPath('appData'), 'advanced-terminal'))
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   app.setAboutPanelOptions({
     applicationName: APP_NAME,
     applicationVersion: app.getVersion(),
@@ -87,6 +88,8 @@ app.whenReady().then(() => {
   const store = createStore()
   createMainWindow()
 
+  // порт приёмника нужен ssh-терминалам уже при восстановлении раскладки в initPty
+  await startRemoteEventsServer()
   const ptyManager = initPty(ipcMain, store)
   initClaude(ipcMain, store, ptyManager)
   initWindows(ipcMain, store)

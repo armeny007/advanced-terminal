@@ -21,6 +21,7 @@ type Modal =
   | { type: 'diff'; term: TermInfo }
   | { type: 'folderPath' }
   | { type: 'changeCwd'; term: TermInfo }
+  | { type: 'ssh'; term: TermInfo | null }
   | { type: 'claudeNew'; term: TermInfo }
   | { type: 'telegram' }
   | null
@@ -152,9 +153,11 @@ export default function App({ soloFolderId }: { soloFolderId?: string }): React.
         onNewTerminal={() => newTerminal()}
         onNewInFolder={() => setModal({ type: 'folderPath' })}
         onNewWorktree={() => setModal({ type: 'worktree' })}
+        onNewSsh={() => setModal({ type: 'ssh', term: null })}
         onNewClaudeSession={(term) => setModal({ type: 'claudeNew', term })}
         onOpenSessions={openSessions}
         onChangeCwd={(term) => setModal({ type: 'changeCwd', term })}
+        onSetSsh={(term) => setModal({ type: 'ssh', term })}
         onWorktreeDiff={(term) => setModal({ type: 'diff', term })}
       />
     )
@@ -307,6 +310,23 @@ export default function App({ soloFolderId }: { soloFolderId?: string }): React.
           onSubmit={(dir) => {
             const d = dir.trim()
             if (d) window.api.setTerminalCwd(modal.term.id, d)
+          }}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {modal?.type === 'ssh' && (
+        <PromptModal
+          title={modal.term ? `SSH-хост — ${modal.term.name}` : 'Новый терминал по SSH'}
+          placeholder="хост:/путь (хост — как в ~/.ssh/config или user@host)"
+          initial={modal.term?.sshHost ? `${modal.term.sshHost}:${modal.term.cwd}` : ''}
+          onSubmit={(v) => {
+            // формат как у scp: host[:path]; без пути — домашняя папка на хосте
+            const i = v.indexOf(':')
+            const host = (i < 0 ? v : v.slice(0, i)).trim()
+            const cwd = i < 0 ? '~' : v.slice(i + 1).trim() || '~'
+            if (!host) return
+            if (modal.term) window.api.setTerminalSsh(modal.term.id, host, cwd)
+            else window.api.createTerminal({ folderId: effectiveFolderId, sshHost: host, cwd, name: host })
           }}
           onClose={() => setModal(null)}
         />

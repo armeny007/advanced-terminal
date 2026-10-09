@@ -540,6 +540,9 @@ textarea:focus {
 .wt-badge {
   color: #cba6f7;
 }
+.ssh-badge {
+  color: #fab387;
+}
 .session-badge {
   font-family: 'SF Mono', Menlo, monospace;
   color: #94e2d5;

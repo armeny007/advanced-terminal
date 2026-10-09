@@ -25,6 +25,11 @@ const BACKUP_PATH = CLAUDE_SETTINGS + '.advterm-backup'
 export const HOOK_SCRIPT_CONTENT = `#!/bin/bash
 # Advanced Terminal: пересылает события hooks Claude Code в приложение
 [ -n "$ADVTERM_TERM_ID" ] || exit 0
+# удалённый хост (ssh): событие уходит по обратному туннелю в HTTP-приёмник приложения
+if [ -n "$ADVTERM_EVENTS_URL" ]; then
+  curl -s -m 3 -X POST --data-binary @- "$ADVTERM_EVENTS_URL$ADVTERM_TERM_ID/\${1:-unknown}" >/dev/null 2>&1
+  exit 0
+fi
 dir="\${ADVTERM_EVENTS_DIR:-$HOME/.advanced-terminal/events}"
 mkdir -p "$dir" 2>/dev/null || exit 0
 f="$dir/$(date +%s)_\${RANDOM}__\${ADVTERM_TERM_ID}__\${1:-unknown}.json"
@@ -44,7 +49,7 @@ interface HookGroup {
   [k: string]: unknown
 }
 
-type SettingsJson = Record<string, unknown> & { hooks?: Record<string, HookGroup[]> }
+export type SettingsJson = Record<string, unknown> & { hooks?: Record<string, HookGroup[]> }
 
 function hasOurHook(groups: HookGroup[]): boolean {
   return groups.some(
@@ -54,7 +59,36 @@ function hasOurHook(groups: HookGroup[]): boolean {
   )
 }
 
-/** Идемпотентно добавляет наш хук во все HOOK_EVENTS, не трогая чужие hooks */
+/** Идемпотентно добавляет хук scriptPath во все HOOK_EVENTS, не трогая чужие hooks. true — что-то изменилось */
+export function mergeHooks(settings: SettingsJson, scriptPath: string): boolean {
+  if (typeof settings.hooks !== 'object' || settings.hooks === null) settings.hooks = {}
+  const hooks = settings.hooks
+  let changed = false
+  for (const event of HOOK_EVENTS) {
+    if (!Array.isArray(hooks[event])) hooks[event] = []
+    const groups = hooks[event]
+    if (hasOurHook(groups)) continue
+    const entry: HookGroup = {
+      hooks: [{ type: 'command', command: `${scriptPath} ${event}` }]
+    }
+    if (event === 'PostToolUse') entry.matcher = '*'
+    groups.push(entry)
+    changed = true
+  }
+  return changed
+}
+
+/** Разбор settings.json; пустая/отсутствующая строка — пустые настройки */
+export function parseSettings(raw: string | null): SettingsJson {
+  if (raw === null || !raw.trim()) return {}
+  const parsed: unknown = JSON.parse(raw)
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new Error('settings.json имеет неожиданный формат')
+  }
+  return parsed as SettingsJson
+}
+
+/** Ставит наш хук в локальный ~/.claude/settings.json */
 export function installHooks(): { ok: boolean; error?: string } {
   try {
     let raw: string | null = null
@@ -63,30 +97,8 @@ export function installHooks(): { ok: boolean; error?: string } {
     } catch {
       // файла нет — создадим
     }
-    let settings: SettingsJson = {}
-    if (raw !== null) {
-      const parsed: unknown = JSON.parse(raw)
-      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-        return { ok: false, error: 'settings.json имеет неожиданный формат' }
-      }
-      settings = parsed as SettingsJson
-    }
-
-    if (typeof settings.hooks !== 'object' || settings.hooks === null) settings.hooks = {}
-    const hooks = settings.hooks
-
-    let changed = false
-    for (const event of HOOK_EVENTS) {
-      if (!Array.isArray(hooks[event])) hooks[event] = []
-      const groups = hooks[event]
-      if (hasOurHook(groups)) continue
-      const entry: HookGroup = {
-        hooks: [{ type: 'command', command: `${HOOK_SCRIPT} ${event}` }]
-      }
-      if (event === 'PostToolUse') entry.matcher = '*'
-      groups.push(entry)
-      changed = true
-    }
+    const settings = parseSettings(raw)
+    const changed = mergeHooks(settings, HOOK_SCRIPT)
 
     if (changed) {
       // бэкап оригинала — один раз, перед первым нашим изменением

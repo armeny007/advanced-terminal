@@ -45,6 +45,8 @@ export interface TermInfo {
   alive: boolean
   /** убран в «Архив» вкладки (скрыт из плитки, shell продолжает жить) */
   archived?: boolean
+  /** удалённый хост (алиас/user@host из ~/.ssh/config): shell запускается через ssh; null/нет — локально */
+  sshHost?: string | null
 }
 
 export interface AppState {
@@ -196,6 +198,7 @@ export const IPC = {
   termClose: 'term:close', // invoke (id)
   termRestart: 'term:restart', // invoke (id) => TermInfo — новый shell в том же cwd
   termSetCwd: 'term:setCwd', // invoke (id, cwd) => TermInfo — новый shell в новом cwd
+  termSetSsh: 'term:setSsh', // invoke (id, host | null, cwd?) => TermInfo — перенести на ssh-хост / сделать локальным
   termRename: 'term:rename', // invoke (id, name)
   termMoveToFolder: 'term:moveToFolder', // invoke (id, folderId)
   termSetArchived: 'term:setArchived', // invoke (id, archived) — в архив вкладки / обратно
@@ -250,12 +253,13 @@ export interface AdvTermApi {
   attachFolder(id: string): Promise<void>
 
   // терминалы
-  createTerminal(opts: { folderId: string; cwd?: string; name?: string }): Promise<TermInfo>
+  createTerminal(opts: { folderId: string; cwd?: string; name?: string; sshHost?: string }): Promise<TermInfo>
   writeTerminal(id: string, data: string): void
   resizeTerminal(id: string, cols: number, rows: number): void
   closeTerminal(id: string): Promise<void>
   restartTerminal(id: string): Promise<TermInfo>
   setTerminalCwd(id: string, cwd: string): Promise<TermInfo | undefined>
+  setTerminalSsh(id: string, host: string | null, cwd?: string): Promise<TermInfo | undefined>
   renameTerminal(id: string, name: string): Promise<void>
   moveTerminalToFolder(id: string, folderId: string): Promise<void>
   setTerminalArchived(id: string, archived: boolean): Promise<void>

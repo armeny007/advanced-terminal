@@ -13,9 +13,11 @@ export function Folder({
   onNewTerminal,
   onNewInFolder,
   onNewWorktree,
+  onNewSsh,
   onNewClaudeSession,
   onOpenSessions,
   onChangeCwd,
+  onSetSsh,
   onWorktreeDiff
 }: {
   folder: FolderInfo
@@ -26,9 +28,11 @@ export function Folder({
   onNewTerminal: () => void
   onNewInFolder: () => void
   onNewWorktree: () => void
+  onNewSsh: () => void
   onNewClaudeSession: (term: TermInfo) => void
   onOpenSessions: (bindTermId: string, cwd: string) => void
   onChangeCwd: (term: TermInfo) => void
+  onSetSsh: (term: TermInfo) => void
   onWorktreeDiff: (term: TermInfo) => void
 }): React.JSX.Element {
   const [maximizedId, setMaximizedId] = useState<string | null>(null)
@@ -56,7 +60,8 @@ export function Folder({
           )}
           items={[
             { label: 'Терминал в папке…', onClick: onNewInFolder },
-            { label: 'Терминал в worktree…', onClick: onNewWorktree }
+            { label: 'Терминал в worktree…', onClick: onNewWorktree },
+            { label: 'Терминал по SSH…', onClick: onNewSsh }
           ]}
         />
         {/* в режиме разворота — свёрнутые терминалы как названия в верхней строке */}
@@ -116,6 +121,7 @@ export function Folder({
               onNewClaudeSession={onNewClaudeSession}
               onOpenSessions={onOpenSessions}
               onChangeCwd={onChangeCwd}
+              onSetSsh={onSetSsh}
               onWorktreeDiff={onWorktreeDiff}
             />
           ))}
