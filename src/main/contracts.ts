@@ -4,6 +4,7 @@ import type {
   ClaudeLaunchOptions,
   FolderInfo,
   FolderPatch,
+  MobileSettings,
   ProjectConfig,
   RunClaudeMode,
   TelegramSettings,
@@ -24,6 +25,7 @@ export interface Store {
   addTerminal(t: TermInfo): void
   updateTerminal(id: string, patch: Partial<TermInfo>): TermInfo | undefined
   removeTerminal(id: string): void
+  moveTerminal(id: string, folderId: string, beforeId: string | null): void
   getTerminal(id: string): TermInfo | undefined
   findTerminalBySession(sessionId: string): TermInfo | undefined
 
@@ -33,6 +35,7 @@ export interface Store {
   setClaudeLaunch(opts: ClaudeLaunchOptions): void
   /** частичное обновление настроек Telegram-бота */
   setTelegram(patch: Partial<TelegramSettings>): void
+  setMobile(patch: Partial<MobileSettings>): void
 
   getProjectConfig(projectPath: string): ProjectConfig
   setProjectConfig(cfg: ProjectConfig): void
@@ -67,4 +70,8 @@ export interface PtyManager {
   runClaude(id: string, mode: RunClaudeMode, sessionId?: string, extraArgs?: string): void
   /** последний вывод терминала (кольцевой буфер), для показа в Telegram */
   getRecentOutput(id: string): string
+  /** подписка на сырой вывод всех терминалов (зеркало экрана для телефона) */
+  onOutput(cb: (id: string, data: string) => void): () => void
+  /** текущий размер pty (cols/rows) */
+  getSize(id: string): { cols: number; rows: number }
 }

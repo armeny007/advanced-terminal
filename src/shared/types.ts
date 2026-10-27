@@ -63,6 +63,8 @@ export interface AppState {
   claudeLaunch: ClaudeLaunchOptions
   /** настройки Telegram-бота (токен хранится отдельно, зашифрованно) */
   telegram: TelegramSettings
+  /** мобильное приложение через релей (секрет сопряжения хранится отдельно, зашифрованно) */
+  mobile: MobileSettings
 }
 
 /** Метаданные прошлой сессии из ~/.claude/projects/<dir>/<uuid>.jsonl */
@@ -146,6 +148,31 @@ export const DEFAULT_TELEGRAM: TelegramSettings = {
   showOutputTail: true
 }
 
+/** Персистентные настройки мобильного приложения (без секрета сопряжения) */
+export interface MobileSettings {
+  enabled: boolean
+  /** адрес релея, ws:// или wss:// */
+  relayUrl: string
+}
+
+export const DEFAULT_MOBILE: MobileSettings = {
+  enabled: false,
+  relayUrl: 'ws://109.75.36.150:8787'
+}
+
+/** Рантайм-состояние связи с телефоном для UI настроек (main -> renderer) */
+export interface MobileRuntimeState {
+  enabled: boolean
+  relayUrl: string
+  /** есть ли секрет сопряжения */
+  hasSecret: boolean
+  /** есть соединение с релеем */
+  connected: boolean
+  /** сколько телефонов сейчас в комнате */
+  clients: number
+  error: string | null
+}
+
 /** Рантайм-состояние бота для UI настроек (main -> renderer) */
 export interface TelegramRuntimeState {
   enabled: boolean
@@ -201,6 +228,7 @@ export const IPC = {
   termSetSsh: 'term:setSsh', // invoke (id, host | null, cwd?) => TermInfo — перенести на ssh-хост / сделать локальным
   termRename: 'term:rename', // invoke (id, name)
   termMoveToFolder: 'term:moveToFolder', // invoke (id, folderId)
+  termMove: 'term:move', // invoke (id, folderId, beforeId | null) — порядок в сайдбаре
   termSetArchived: 'term:setArchived', // invoke (id, archived) — в архив вкладки / обратно
   termBindSession: 'term:bindSession', // invoke (id, sessionId | null)
   termRunClaude: 'term:runClaude', // invoke (id, mode: RunClaudeMode, sessionId?, extraArgs?)
@@ -225,6 +253,13 @@ export const IPC = {
   telegramPatchSettings: 'telegram:patchSettings', // invoke (Partial<TelegramSettings>) => TelegramRuntimeState
   telegramGenPairing: 'telegram:genPairing', // invoke () => { code, expiresAt }
   telegramRuntime: 'telegram:runtime', // on (TelegramRuntimeState)
+
+  // мобильное приложение
+  mobileGetRuntime: 'mobile:getRuntime', // invoke () => MobileRuntimeState
+  mobilePatchSettings: 'mobile:patchSettings', // invoke (Partial<MobileSettings>) => MobileRuntimeState
+  mobileGetPairing: 'mobile:getPairing', // invoke () => string | null — код сопряжения (advterm://pair?…)
+  mobileGenPairing: 'mobile:genPairing', // invoke () => string — новый секрет (старые телефоны отвязываются)
+  mobileRuntime: 'mobile:runtime', // on (MobileRuntimeState)
 
   // worktrees (V2)
   wtList: 'wt:list', // invoke (projectPath) => WorktreeInfo[]
@@ -262,6 +297,8 @@ export interface AdvTermApi {
   setTerminalSsh(id: string, host: string | null, cwd?: string): Promise<TermInfo | undefined>
   renameTerminal(id: string, name: string): Promise<void>
   moveTerminalToFolder(id: string, folderId: string): Promise<void>
+  /** переставить терминал: в папку folderId перед beforeId (null — в конец) */
+  moveTerminal(id: string, folderId: string, beforeId: string | null): Promise<void>
   setTerminalArchived(id: string, archived: boolean): Promise<void>
   bindSession(id: string, sessionId: string | null): Promise<void>
   runClaude(id: string, mode: RunClaudeMode, sessionId?: string, extraArgs?: string): Promise<void>
@@ -286,6 +323,13 @@ export interface AdvTermApi {
   patchTelegramSettings(patch: Partial<TelegramSettings>): Promise<TelegramRuntimeState>
   generateTelegramPairingCode(): Promise<{ code: string; expiresAt: number }>
   onTelegramRuntime(cb: (s: TelegramRuntimeState) => void): () => void
+
+  // мобильное приложение
+  getMobileRuntime(): Promise<MobileRuntimeState>
+  patchMobileSettings(patch: Partial<MobileSettings>): Promise<MobileRuntimeState>
+  getMobilePairing(): Promise<string | null>
+  generateMobilePairing(): Promise<string>
+  onMobileRuntime(cb: (s: MobileRuntimeState) => void): () => void
 
   // worktrees (V2)
   listWorktrees(projectPath: string): Promise<WorktreeInfo[]>

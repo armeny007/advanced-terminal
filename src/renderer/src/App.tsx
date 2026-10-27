@@ -5,6 +5,7 @@ import { useAppState } from './lib/useAppState'
 import { basename } from './lib/status'
 import { TopBar } from './components/TopBar'
 import { Folder } from './components/Folder'
+import { Sidebar } from './components/Sidebar'
 import { Dashboard } from './components/Dashboard'
 import { SessionsBrowser } from './components/SessionsBrowser'
 import { GlobalSearch } from './components/GlobalSearch'
@@ -13,6 +14,7 @@ import { WorktreeDialog } from './components/WorktreeDialog'
 import { DiffModal } from './components/DiffModal'
 import { ClaudeFlagsDialog, buildClaudeArgs } from './components/ClaudeFlagsDialog'
 import { TelegramSettings } from './components/TelegramSettings'
+import { MobileSettings } from './components/MobileSettings'
 import { PromptModal } from './lib/ui'
 
 type Modal =
@@ -24,6 +26,7 @@ type Modal =
   | { type: 'ssh'; term: TermInfo | null }
   | { type: 'claudeNew'; term: TermInfo }
   | { type: 'telegram' }
+  | { type: 'mobile' }
   | null
 
 /** soloFolderId задан у окна отдельной папки (режим одной папки без вкладок) */
@@ -38,6 +41,13 @@ export default function App({ soloFolderId }: { soloFolderId?: string }): React.
   const sessionsCache = useRef<ClaudeSessionMeta[]>([])
   const [hooksDismissed, setHooksDismissed] = useState(false)
   const [resumeList, setResumeList] = useState<TermInfo[]>([])
+  // левая панель со списком терминалов; состояние помним между запусками
+  const [sidebarOpen, setSidebarOpen] = useState(() => localStorage.getItem('advterm.sidebar') !== '0')
+  const toggleSidebar = (): void =>
+    setSidebarOpen((v) => {
+      localStorage.setItem('advterm.sidebar', v ? '0' : '1')
+      return !v
+    })
   const startupDone = useRef(false)
 
   useEffect(() => bus.start(), [])
@@ -77,11 +87,26 @@ export default function App({ soloFolderId }: { soloFolderId?: string }): React.
       : state.activeFolderId
   const effectiveFolderId = solo ? soloFolderId! : state.activeFolderId
 
+  // запрос «развернуть терминал на всю папку» (из сайдбара); { id, n } — чтобы повторный
+  // выбор того же терминала тоже срабатывал
+  const [maximizeReq, setMaximizeReq] = useState<{ id: string; n: number } | null>(null)
+  // текущий терминал — последний, в который ушёл фокус ввода (выделяется в сайдбаре)
+  const [currentId, setCurrentId] = useState<string | null>(null)
+  useEffect(() => {
+    const onFocusIn = (e: FocusEvent): void => {
+      const id = (e.target as Element | null)?.closest?.('.term-card')?.getAttribute('data-term-id')
+      if (id) setCurrentId(id)
+    }
+    document.addEventListener('focusin', onFocusIn)
+    return () => document.removeEventListener('focusin', onFocusIn)
+  }, [])
+
   const revealTerm = useCallback(
-    (term: TermInfo) => {
+    (term: TermInfo, maximize = false) => {
       if (solo && term.folderId !== soloFolderId) return
       setView('grid')
       if (!solo) window.api.setActiveFolder(term.folderId)
+      if (maximize) setMaximizeReq((r) => ({ id: term.id, n: (r?.n ?? 0) + 1 }))
       setHighlight(term.id)
       setTimeout(() => bus.focus(term.id), 120)
       setTimeout(() => setHighlight(null), 1500)
@@ -113,6 +138,10 @@ export default function App({ soloFolderId }: { soloFolderId?: string }): React.
       if ((e.metaKey || e.ctrlKey) && e.key === 't') {
         e.preventDefault()
         newTerminal()
+      }
+      if (!solo && (e.metaKey || e.ctrlKey) && e.key === 'b') {
+        e.preventDefault()
+        toggleSidebar()
       }
     }
     window.addEventListener('keydown', onKey)
@@ -150,6 +179,7 @@ export default function App({ soloFolderId }: { soloFolderId?: string }): React.
         allFolders={state.folders}
         active={f.id === activeId}
         highlightTermId={highlight}
+        maximizeReq={maximizeReq}
         onNewTerminal={() => newTerminal()}
         onNewInFolder={() => setModal({ type: 'folderPath' })}
         onNewWorktree={() => setModal({ type: 'worktree' })}
@@ -188,9 +218,12 @@ export default function App({ soloFolderId }: { soloFolderId?: string }): React.
         <TopBar
           state={state}
           view={view}
+          sidebarOpen={sidebarOpen}
+          onToggleSidebar={toggleSidebar}
           onSetView={setView}
           onOpenSessions={() => setModal({ type: 'sessions', bindTermId: null, filterCwd: null })}
           onOpenSettings={() => setModal({ type: 'telegram' })}
+          onOpenMobile={() => setModal({ type: 'mobile' })}
           search={search}
           onSearchChange={(v) => {
             setSearch(v)
@@ -260,19 +293,29 @@ export default function App({ soloFolderId }: { soloFolderId?: string }): React.
       )}
 
       <div className="content">
-        {solo ? (
-          soloFolder ? (
-            renderFolder(soloFolderId!)
-          ) : (
-            <div className="empty">
-              <p>Папка закрыта</p>
-            </div>
-          )
-        ) : view === 'dashboard' ? (
-          <Dashboard state={state} onOpenTerm={revealTerm} />
-        ) : (
-          visibleFolders.map((p) => renderFolder(p.id))
+        {!solo && sidebarOpen && (
+          <Sidebar
+            state={state}
+            activeFolderId={activeId}
+            currentTermId={currentId}
+            onPickTerm={(t) => revealTerm(t, true)}
+          />
         )}
+        <div className="content-main">
+          {solo ? (
+            soloFolder ? (
+              renderFolder(soloFolderId!)
+            ) : (
+              <div className="empty">
+                <p>Папка закрыта</p>
+              </div>
+            )
+          ) : view === 'dashboard' ? (
+            <Dashboard state={state} onOpenTerm={revealTerm} />
+          ) : (
+            visibleFolders.map((p) => renderFolder(p.id))
+          )}
+        </div>
       </div>
 
       {modal?.type === 'sessions' && (
@@ -293,6 +336,7 @@ export default function App({ soloFolderId }: { soloFolderId?: string }): React.
       )}
       {modal?.type === 'diff' && <DiffModal term={modal.term} onClose={() => setModal(null)} />}
       {modal?.type === 'telegram' && <TelegramSettings onClose={() => setModal(null)} />}
+      {modal?.type === 'mobile' && <MobileSettings onClose={() => setModal(null)} />}
       {modal?.type === 'folderPath' && (
         <PromptModal
           title="Новый терминал в папке"
@@ -326,7 +370,13 @@ export default function App({ soloFolderId }: { soloFolderId?: string }): React.
             const cwd = i < 0 ? '~' : v.slice(i + 1).trim() || '~'
             if (!host) return
             if (modal.term) window.api.setTerminalSsh(modal.term.id, host, cwd)
-            else window.api.createTerminal({ folderId: effectiveFolderId, sshHost: host, cwd, name: host })
+            else
+              window.api.createTerminal({
+                folderId: effectiveFolderId,
+                sshHost: host,
+                cwd,
+                name: host
+              })
           }}
           onClose={() => setModal(null)}
         />

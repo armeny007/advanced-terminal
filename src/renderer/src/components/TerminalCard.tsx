@@ -266,6 +266,7 @@ export function TerminalCard({
   return (
     <div
       className={`term-card ${highlighted ? 'highlight' : ''} ${maximized ? 'maximized' : ''}`}
+      data-term-id={term.id}
       style={hidden ? { display: 'none' } : undefined}
     >
       <div className="term-head">

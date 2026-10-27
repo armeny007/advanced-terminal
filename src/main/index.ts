@@ -6,6 +6,7 @@ import { initPty } from './pty'
 import { initClaude } from './claude'
 import { startRemoteEventsServer } from './claude/remoteEvents'
 import { initTelegram } from './telegram'
+import { initMobile } from './mobile'
 import { createMainWindow, initWindows } from './windows'
 
 const APP_NAME = 'Advanced Terminal'
@@ -94,6 +95,7 @@ app.whenReady().then(async () => {
   initClaude(ipcMain, store, ptyManager)
   initWindows(ipcMain, store)
   initTelegram(ipcMain, store, ptyManager)
+  initMobile(ipcMain, store, ptyManager)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

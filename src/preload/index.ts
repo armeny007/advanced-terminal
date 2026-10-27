@@ -35,6 +35,7 @@ const api: AdvTermApi = {
   setTerminalSsh: (id, host, cwd) => ipcRenderer.invoke(IPC.termSetSsh, id, host, cwd),
   renameTerminal: (id, name) => ipcRenderer.invoke(IPC.termRename, id, name),
   moveTerminalToFolder: (id, folderId) => ipcRenderer.invoke(IPC.termMoveToFolder, id, folderId),
+  moveTerminal: (id, folderId, beforeId) => ipcRenderer.invoke(IPC.termMove, id, folderId, beforeId),
   setTerminalArchived: (id, archived) => ipcRenderer.invoke(IPC.termSetArchived, id, archived),
   bindSession: (id, sessionId) => ipcRenderer.invoke(IPC.termBindSession, id, sessionId),
   runClaude: (id, mode, sessionId, extraArgs) =>
@@ -60,6 +61,13 @@ const api: AdvTermApi = {
   patchTelegramSettings: (patch) => ipcRenderer.invoke(IPC.telegramPatchSettings, patch),
   generateTelegramPairingCode: () => ipcRenderer.invoke(IPC.telegramGenPairing),
   onTelegramRuntime: (cb) => on(IPC.telegramRuntime, cb as never),
+
+  // мобильное приложение
+  getMobileRuntime: () => ipcRenderer.invoke(IPC.mobileGetRuntime),
+  patchMobileSettings: (patch) => ipcRenderer.invoke(IPC.mobilePatchSettings, patch),
+  getMobilePairing: () => ipcRenderer.invoke(IPC.mobileGetPairing),
+  generateMobilePairing: () => ipcRenderer.invoke(IPC.mobileGenPairing),
+  onMobileRuntime: (cb) => on(IPC.mobileRuntime, cb as never),
 
   // worktrees (V2)
   listWorktrees: (projectPath) => ipcRenderer.invoke(IPC.wtList, projectPath),

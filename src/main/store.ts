@@ -10,9 +10,10 @@ import type {
   FolderInfo,
   ProjectConfig,
   TelegramSettings,
+  MobileSettings,
   TermInfo
 } from '../shared/types'
-import { DEFAULT_CLAUDE_LAUNCH, DEFAULT_TELEGRAM } from '../shared/types'
+import { DEFAULT_CLAUDE_LAUNCH, DEFAULT_MOBILE, DEFAULT_TELEGRAM } from '../shared/types'
 
 /** Персистируемая часть состояния (hooksInstalled не сохраняется) */
 interface PersistedState {
@@ -23,6 +24,7 @@ interface PersistedState {
   autoResumeSessions: boolean
   claudeLaunch: ClaudeLaunchOptions
   telegram: TelegramSettings
+  mobile: MobileSettings
 }
 
 const SAVE_DEBOUNCE_MS = 300
@@ -44,7 +46,8 @@ function defaultState(): PersistedState {
     projectConfigs: {},
     autoResumeSessions: false,
     claudeLaunch: { ...DEFAULT_CLAUDE_LAUNCH },
-    telegram: { ...DEFAULT_TELEGRAM }
+    telegram: { ...DEFAULT_TELEGRAM },
+    mobile: { ...DEFAULT_MOBILE }
   }
 }
 
@@ -67,7 +70,8 @@ function loadState(file: string): PersistedState {
       projectConfigs: raw.projectConfigs && typeof raw.projectConfigs === 'object' ? raw.projectConfigs : {},
       autoResumeSessions: raw.autoResumeSessions === true,
       claudeLaunch: { ...DEFAULT_CLAUDE_LAUNCH, ...(raw.claudeLaunch ?? {}) },
-      telegram: { ...DEFAULT_TELEGRAM, ...(raw.telegram ?? {}) }
+      telegram: { ...DEFAULT_TELEGRAM, ...(raw.telegram ?? {}) },
+      mobile: { ...DEFAULT_MOBILE, ...(raw.mobile ?? {}) }
     }
   } catch {
     return defaultState()
@@ -86,7 +90,8 @@ export function createStore(): Store {
     detachedFolderIds: [],
     autoResumeSessions: persisted.autoResumeSessions,
     claudeLaunch: persisted.claudeLaunch,
-    telegram: persisted.telegram
+    telegram: persisted.telegram,
+    mobile: persisted.mobile
   }
   const projectConfigs = persisted.projectConfigs
 
@@ -105,7 +110,8 @@ export function createStore(): Store {
       projectConfigs,
       autoResumeSessions: state.autoResumeSessions,
       claudeLaunch: state.claudeLaunch,
-      telegram: state.telegram
+      telegram: state.telegram,
+      mobile: state.mobile
     }
     try {
       mkdirSync(dirname(file), { recursive: true })
@@ -192,6 +198,16 @@ export function createStore(): Store {
       state.terminals.splice(idx, 1)
       commit()
     },
+    moveTerminal: (id, folderId, beforeId) => {
+      const idx = state.terminals.findIndex((t) => t.id === id)
+      if (idx === -1 || id === beforeId || !state.folders.some((f) => f.id === folderId)) return
+      const [t] = state.terminals.splice(idx, 1)
+      t.folderId = folderId
+      const at = beforeId ? state.terminals.findIndex((x) => x.id === beforeId) : -1
+      if (at === -1) state.terminals.push(t)
+      else state.terminals.splice(at, 0, t)
+      commit()
+    },
     getTerminal: (id) => state.terminals.find((t) => t.id === id),
     findTerminalBySession: (sessionId) =>
       state.terminals.find((t) => t.claudeSessionId === sessionId),
@@ -218,6 +234,10 @@ export function createStore(): Store {
     },
     setTelegram: (patch) => {
       state.telegram = { ...state.telegram, ...patch }
+      commit()
+    },
+    setMobile: (patch) => {
+      state.mobile = { ...state.mobile, ...patch }
       commit()
     },
 

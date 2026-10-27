@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FolderInfo, TermInfo } from '../../../shared/types'
 import { Menu } from '../lib/ui'
 import { STATUS_COLOR, STATUS_LABEL, statusPulses } from '../lib/status'
@@ -10,6 +10,7 @@ export function Folder({
   allFolders,
   active,
   highlightTermId,
+  maximizeReq,
   onNewTerminal,
   onNewInFolder,
   onNewWorktree,
@@ -25,6 +26,8 @@ export function Folder({
   allFolders: FolderInfo[]
   active: boolean
   highlightTermId: string | null
+  /** развернуть терминал на всю папку (выбор в сайдбаре) */
+  maximizeReq: { id: string; n: number } | null
   onNewTerminal: () => void
   onNewInFolder: () => void
   onNewWorktree: () => void
@@ -37,6 +40,10 @@ export function Folder({
 }): React.JSX.Element {
   const [maximizedId, setMaximizedId] = useState<string | null>(null)
   const [archiveOpen, setArchiveOpen] = useState(false)
+  useEffect(() => {
+    if (maximizeReq && terminals.some((t) => t.id === maximizeReq.id)) setMaximizedId(maximizeReq.id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [maximizeReq])
   // архивные терминалы живут (xterm смонтирован, shell работает), но в плитке не показываются
   const shown = terminals.filter((t) => !t.archived)
   const archived = terminals.filter((t) => t.archived)

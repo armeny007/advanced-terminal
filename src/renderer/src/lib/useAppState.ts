@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { AppState } from '../../../shared/types'
-import { DEFAULT_CLAUDE_LAUNCH, DEFAULT_TELEGRAM } from '../../../shared/types'
+import { DEFAULT_CLAUDE_LAUNCH, DEFAULT_MOBILE, DEFAULT_TELEGRAM } from '../../../shared/types'
 
 const EMPTY: AppState = {
   folders: [],
@@ -10,7 +10,8 @@ const EMPTY: AppState = {
   detachedFolderIds: [],
   autoResumeSessions: false,
   claudeLaunch: DEFAULT_CLAUDE_LAUNCH,
-  telegram: DEFAULT_TELEGRAM
+  telegram: DEFAULT_TELEGRAM,
+  mobile: DEFAULT_MOBILE
 }
 
 /** Состояние приложения из main: getState при старте + подписка на изменения */

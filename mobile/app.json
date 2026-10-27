@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "Advanced Terminal",
+    "slug": "advanced-terminal",
+    "scheme": "advterm",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#11111b",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "dev.armen.advterm",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Сканирование QR-кода сопряжения с приложением на Mac",
+        "NSAppTransportSecurity": { "NSAllowsArbitraryLoads": true }
+      }
+    },
+    "android": {
+      "package": "dev.armen.advterm",
+      "adaptiveIcon": {
+        "backgroundColor": "#11111b",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": { "favicon": "./assets/favicon.png" },
+    "plugins": [
+      ["expo-camera", { "cameraPermission": "Сканирование QR-кода сопряжения" }],
+      "expo-secure-store"
+    ]
+  }
+}

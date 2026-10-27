@@ -13,16 +13,27 @@ export interface AttentionEvent {
   completed: boolean
 }
 
-let hook: ((ev: AttentionEvent) => void) | null = null
+type Hook = (ev: AttentionEvent) => void
 
-export function setAttentionHook(cb: ((ev: AttentionEvent) => void) | null): void {
+let hook: Hook | null = null // слот Telegram-бота (ставится/снимается при запуске/остановке)
+const extra = new Set<Hook>() // прочие подписчики (мобильное приложение)
+
+export function setAttentionHook(cb: Hook | null): void {
   hook = cb
 }
 
+/** Добавить подписчика; возвращает функцию отписки */
+export function addAttentionHook(cb: Hook): () => void {
+  extra.add(cb)
+  return () => extra.delete(cb)
+}
+
 export function emitAttention(ev: AttentionEvent): void {
-  try {
-    hook?.(ev)
-  } catch {
-    // подписчик не должен ронять watcher
+  for (const h of [hook, ...extra]) {
+    try {
+      h?.(ev)
+    } catch {
+      // подписчик не должен ронять watcher
+    }
   }
 }

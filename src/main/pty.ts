@@ -22,6 +22,9 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
   const ptys = new Map<string, IPty>()
   // кольцевой буфер последнего вывода по терминалу (сырой, с ANSI)
   const outputs = new Map<string, string>()
+  // подписчики сырого вывода (зеркало экрана для телефона) и размеры pty
+  const outputListeners = new Set<(id: string, data: string) => void>()
+  const sizes = new Map<string, { cols: number; rows: number }>()
 
   function spawnShell(id: string, cwd: string, sshHost?: string | null): void {
     const env = {
@@ -52,6 +55,7 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
       send(IPC.termData, id, data)
       const next = (outputs.get(id) ?? '') + data
       outputs.set(id, next.length > OUTPUT_BUFFER_MAX ? next.slice(next.length - OUTPUT_BUFFER_MAX) : next)
+      for (const cb of outputListeners) cb(id, data)
     })
     p.onExit(({ exitCode }) => {
       // если терминал уже перезапущен/закрыт, этот exit — от старого процесса
@@ -194,6 +198,15 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
     return outputs.get(id) ?? ''
   }
 
+  function onOutput(cb: (id: string, data: string) => void): () => void {
+    outputListeners.add(cb)
+    return () => outputListeners.delete(cb)
+  }
+
+  function getSize(id: string): { cols: number; rows: number } {
+    return sizes.get(id) ?? { cols: 80, rows: 24 }
+  }
+
   store.onChange((s) => send(IPC.stateChanged, s))
 
   // восстановление раскладки после перезапуска приложения: те же id, новые shell'ы
@@ -225,6 +238,7 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
   ipcMain.on(IPC.termWrite, (_e, id: string, data: string) => writeToTerminal(id, data))
   ipcMain.on(IPC.termResize, (_e, id: string, cols: number, rows: number) => {
     try {
+      sizes.set(id, { cols, rows })
       ptys.get(id)?.resize(cols, rows)
     } catch {
       // pty мог умереть между проверкой и resize
@@ -246,6 +260,9 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
   })
   ipcMain.handle(IPC.termMoveToFolder, (_e, id: string, folderId: string) => {
     store.updateTerminal(id, { folderId })
+  })
+  ipcMain.handle(IPC.termMove, (_e, id: string, folderId: string, beforeId: string | null) => {
+    store.moveTerminal(id, folderId, beforeId)
   })
   ipcMain.handle(IPC.termSetArchived, (_e, id: string, archived: boolean) => {
     store.updateTerminal(id, { archived })
@@ -298,6 +315,8 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
     setTerminalCwd,
     setTerminalSsh,
     runClaude,
-    getRecentOutput
+    getRecentOutput,
+    onOutput,
+    getSize
   }
 }
