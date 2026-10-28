@@ -67,6 +67,9 @@ export function TerminalScreen({ route, navigation }: NativeStackScreenProps<Rou
   const [text, setText] = useState('')
   const [fontSize, setFontSize] = useState(11)
   const scroll = useRef<React.ComponentRef<typeof ScrollView>>(null)
+  // следуем за выводом только пока пользователь у нижнего края — иначе снимки (каждые 250 мс,
+  // пока крутится спиннер) сбрасывали бы прокрутку вниз и наверх было не уйти
+  const atBottom = useRef(true)
 
   // подписка на экран — пока открыт этот терминал
   useEffect(() => {
@@ -75,8 +78,8 @@ export function TerminalScreen({ route, navigation }: NativeStackScreenProps<Rou
   }, [termId])
 
   useEffect(() => {
-    scroll.current?.scrollToEnd({ animated: false })
-  }, [screen])
+    if (atBottom.current) scroll.current?.scrollToEnd({ animated: false })
+  }, [screen, lines])
 
   const menu = (): void => {
     const items = [
@@ -132,7 +135,16 @@ export function TerminalScreen({ route, navigation }: NativeStackScreenProps<Rou
           {!hostOnline ? ' · Mac не в сети' : ''}
         </Text>
       </View>
-      <ScrollView ref={scroll} style={s.screen} contentContainerStyle={s.screenContent}>
+      <ScrollView
+        ref={scroll}
+        style={s.screen}
+        contentContainerStyle={s.screenContent}
+        scrollEventThrottle={100}
+        onScroll={(e) => {
+          const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent
+          atBottom.current = contentOffset.y + layoutMeasurement.height >= contentSize.height - 40
+        }}
+      >
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <Text style={[s.mono, { fontSize, lineHeight: fontSize * 1.35 }]} selectable>
             {lines?.length ? (
