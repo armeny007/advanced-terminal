@@ -207,14 +207,6 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
     return sizes.get(id) ?? { cols: 80, rows: 24 }
   }
 
-  function resize(id: string, cols: number, rows: number): void {
-    try {
-      ptys.get(id)?.resize(cols, rows)
-    } catch {
-      // pty мог умереть
-    }
-  }
-
   store.onChange((s) => send(IPC.stateChanged, s))
 
   // восстановление раскладки после перезапуска приложения: те же id, новые shell'ы
@@ -325,7 +317,6 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
     runClaude,
     getRecentOutput,
     onOutput,
-    getSize,
-    resize
+    getSize
   }
 }

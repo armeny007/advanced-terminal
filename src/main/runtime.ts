@@ -1,4 +1,5 @@
-import type { BrowserWindow } from 'electron'
+import type { BrowserWindow, IpcMain } from 'electron'
+import { IPC } from '../shared/types'
 
 /** Общее runtime-состояние main-процесса */
 export const runtime = {
@@ -26,6 +27,30 @@ export function windowForFolder(folderId: string): BrowserWindow | null {
 
 export function isAnyWindowFocused(): boolean {
   return allWindows().some((w) => w.isFocused())
+}
+
+/** Попросить у окна, где смонтирован терминал, его буфер xterm (ANSI); null — окна нет / не ответило */
+const serializeWaiters = new Map<string, (data: string | null) => void>()
+let serializeSeq = 0
+export function requestSerialize(ipcMain: IpcMain, folderId: string, termId: string): Promise<string | null> {
+  const win = windowForFolder(folderId)
+  if (!win) return Promise.resolve(null)
+  if (serializeWaiters.size === 0 && serializeSeq === 0) {
+    ipcMain.on(IPC.termSerializeRes, (_e, reqId: string, data: string) => {
+      serializeWaiters.get(reqId)?.(data || null)
+    })
+  }
+  const reqId = String(++serializeSeq)
+  return new Promise((resolve) => {
+    const done = (d: string | null): void => {
+      clearTimeout(t)
+      serializeWaiters.delete(reqId)
+      resolve(d)
+    }
+    const t = setTimeout(() => done(null), 1500)
+    serializeWaiters.set(reqId, done)
+    win.webContents.send(IPC.termSerializeReq, reqId, termId)
+  })
 }
 
 /** Разослать событие во все окна (безопасно, если окно закрыто) */

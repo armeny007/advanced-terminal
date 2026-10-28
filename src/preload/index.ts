@@ -52,6 +52,9 @@ const api: AdvTermApi = {
   // ui
   setFocusedTerm: (id) => ipcRenderer.send(IPC.uiSetFocusedTerm, id),
   onRevealTerm: (cb) => on(IPC.uiRevealTerm, cb as never),
+  onSerializeRequest: (cb) =>
+    on(IPC.termSerializeReq, ((reqId: string, termId: string) =>
+      ipcRenderer.send(IPC.termSerializeRes, reqId, cb(termId))) as never),
   setAutoResumeSessions: (v) => ipcRenderer.invoke(IPC.settingsSetAutoResume, v),
   setClaudeLaunch: (opts) => ipcRenderer.invoke(IPC.settingsSetClaudeLaunch, opts),
 

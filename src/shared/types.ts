@@ -244,6 +244,8 @@ export const IPC = {
   // ui
   uiSetFocusedTerm: 'ui:setFocusedTerm', // send (id | null) — для подавления уведомлений
   uiRevealTerm: 'ui:revealTerm', // on (termId) — клик по уведомлению
+  termSerializeReq: 'term:serialize:req', // on (reqId, termId) — main просит буфер xterm (зеркало для телефона)
+  termSerializeRes: 'term:serialize:res', // send (reqId, data)
   settingsSetAutoResume: 'settings:setAutoResume', // invoke (bool)
   settingsSetClaudeLaunch: 'settings:setClaudeLaunch', // invoke (ClaudeLaunchOptions)
 
@@ -314,6 +316,8 @@ export interface AdvTermApi {
   // ui
   setFocusedTerm(id: string | null): void
   onRevealTerm(cb: (termId: string) => void): () => void
+  /** main просит сериализованный буфер xterm терминала ('' — здесь не смонтирован) */
+  onSerializeRequest(cb: (termId: string) => string): () => void
   setAutoResumeSessions(v: boolean): Promise<void>
   setClaudeLaunch(opts: ClaudeLaunchOptions): Promise<void>
 

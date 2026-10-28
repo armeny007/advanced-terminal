@@ -6,6 +6,7 @@ import type { IpcMain } from 'electron'
 import { IPC } from '../../shared/types'
 import type { MobileRuntimeState, MobileSettings } from '../../shared/types'
 import type { ClientMsg, HostMsg, MobileTerm, ScreenSeg } from '../../shared/mobile-protocol'
+import { requestSerialize } from '../runtime'
 import { PAIR_SCHEME } from '../../shared/mobile-protocol'
 import type { PtyManager, Store } from '../contracts'
 import { addAttentionHook } from '../attention'
@@ -87,7 +88,8 @@ export function initMobile(ipcMain: IpcMain, store: Store, pty: PtyManager): voi
 
   // --- зеркала экранов: пока связь включена, headless xterm у каждого терминала с выводом —
   // так копится история прокрутки (телефон листает вверх), а не только последний кадр ---
-  const mirrors = new Map<string, { m: ScreenMirror; needsNudge: boolean }>()
+  // pending — вывод, пришедший пока зеркало засевается буфером из окна (пишем после засева, по порядку)
+  const mirrors = new Map<string, { m: ScreenMirror; pending: string[] | null; onReady: (() => void)[] }>()
   let sub: { termId: string; lastScreen: string; lastHist: string; histAt: number; timer: NodeJS.Timeout | null } | null =
     null
   const dropMirrors = (): void => {
@@ -96,18 +98,32 @@ export function initMobile(ipcMain: IpcMain, store: Store, pty: PtyManager): voi
     if (sub?.timer) clearTimeout(sub.timer)
     sub = null
   }
-  const ensureMirror = (termId: string, cb?: () => void): { m: ScreenMirror; needsNudge: boolean } => {
-    let e = mirrors.get(termId)
-    if (e) {
-      cb?.()
-      return e
+  const ensureMirror = (termId: string, cb?: () => void): void => {
+    const existing = mirrors.get(termId)
+    if (existing) {
+      if (!cb) return
+      if (existing.pending) existing.onReady.push(cb)
+      else cb()
+      return
     }
     const { cols, rows } = pty.getSize(termId)
-    e = { m: new ScreenMirror(cols, rows), needsNudge: true }
+    const e = { m: new ScreenMirror(cols, rows), pending: [] as string[] | null, onReady: cb ? [cb] : [] }
     mirrors.set(termId, e)
-    // накопленный хвост — чтобы экран появился сразу, не дожидаясь нового вывода
-    e.m.write(pty.getRecentOutput(termId), cb)
-    return e
+    // засев: буфер xterm из окна (экран + история + цвета, как видит пользователь).
+    // Нет окна/ответа — сырой хвост вывода (в нём только последние кадры TUI)
+    const folderId = store.getTerminal(termId)?.folderId ?? ''
+    void requestSerialize(ipcMain, folderId, termId).then((seed) => {
+      if (process.env['ADVTERM_MOBILE_DEBUG']) console.log('[mobile] seed', termId, seed?.length ?? null)
+      e.m.write(seed ?? pty.getRecentOutput(termId), () => {
+        const q = e.pending ?? []
+        e.pending = null
+        e.m.write(q.join(''), () => {
+          if (sub?.termId === termId) scheduleScreen()
+          for (const f of e.onReady) f()
+          e.onReady = []
+        })
+      })
+    })
   }
   const scheduleScreen = (): void => {
     if (!sub || sub.timer) return
@@ -143,24 +159,16 @@ export function initMobile(ipcMain: IpcMain, store: Store, pty: PtyManager): voi
     sub = null
     if (!termId || !store.getTerminal(termId)) return
     sub = { termId, lastScreen: '', lastHist: '', histAt: 0, timer: null }
-    const e = ensureMirror(termId, () => {
-      if (sub?.termId !== termId) return
-      scheduleScreen()
-      if (!e.needsNudge) return
-      e.needsNudge = false
-      // в хвосте буфера только последние кадры TUI (Claude рисует поверх, абсолютными позициями),
-      // верх экрана в зеркале пустой. Дёргаем размер pty — TUI перерисовывает весь экран целиком
-      const { cols, rows } = pty.getSize(termId)
-      pty.resize(termId, cols - 1, rows)
-      pty.resize(termId, cols, rows)
-    })
+    ensureMirror(termId, scheduleScreen)
   }
   pty.onOutput((id, data) => {
     if (!link) return
     const { cols, rows } = pty.getSize(id)
-    const e = ensureMirror(id)
+    ensureMirror(id)
+    const e = mirrors.get(id)!
     e.m.resize(cols, rows)
-    e.m.write(data, sub?.termId === id ? scheduleScreen : undefined)
+    if (e.pending) e.pending.push(data)
+    else e.m.write(data, sub?.termId === id ? scheduleScreen : undefined)
   })
   store.onChange((st) => {
     for (const id of mirrors.keys()) {

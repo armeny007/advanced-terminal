@@ -1,4 +1,5 @@
 import { Terminal } from '@xterm/xterm'
+import { SerializeAddon } from '@xterm/addon-serialize'
 
 // Единая шина данных терминалов: ОДНА подписка window.api.onTermData на всё
 // приложение раздаёт данные инстансам xterm по id. Данные от pty могут прийти
@@ -7,6 +8,7 @@ import { Terminal } from '@xterm/xterm'
 interface Entry {
   term: Terminal | null
   buffer: string[]
+  ser?: SerializeAddon
 }
 
 class TermDataBus {
@@ -41,6 +43,8 @@ class TermDataBus {
   register(id: string, term: Terminal): void {
     const e = this.ensure(id)
     e.term = term
+    e.ser = new SerializeAddon()
+    term.loadAddon(e.ser)
     if (e.buffer.length) {
       for (const chunk of e.buffer) term.write(chunk)
       e.buffer = []
@@ -54,6 +58,11 @@ class TermDataBus {
 
   get(id: string): Terminal | null {
     return this.entries.get(id)?.term ?? null
+  }
+
+  /** буфер терминала как поток с ANSI (экран + хвост прокрутки) — засеять зеркало для телефона */
+  serialize(id: string, scrollback: number): string {
+    return this.entries.get(id)?.ser?.serialize({ scrollback }) ?? ''
   }
 
   focus(id: string): void {

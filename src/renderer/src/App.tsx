@@ -51,6 +51,7 @@ export default function App({ soloFolderId }: { soloFolderId?: string }): React.
   const startupDone = useRef(false)
 
   useEffect(() => bus.start(), [])
+  useEffect(() => window.api.onSerializeRequest((id) => bus.serialize(id, 300)), [])
 
   useEffect(() => {
     window.api.listClaudeSessions().then((s) => (sessionsCache.current = s))
