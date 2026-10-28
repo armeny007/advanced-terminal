@@ -23,6 +23,8 @@ export interface State {
   screens: Record<string, string>
   /** тот же экран со стилями (нет у старых версий приложения на Mac) */
   screenLines: Record<string, ScreenSeg[][] | undefined>
+  /** история прокрутки над экраном (приходит реже экрана) */
+  screenHistory: Record<string, ScreenSeg[][] | undefined>
   attention: Attention | null
 }
 
@@ -34,6 +36,7 @@ let state: State = {
   terminals: [],
   screens: {},
   screenLines: {},
+  screenHistory: {},
   attention: null
 }
 const listeners = new Set<() => void>()
@@ -52,7 +55,8 @@ export function applyHostMsg(msg: HostMsg): void {
   else if (msg.t === 'screen') {
     setState({
       screens: { ...state.screens, [msg.termId]: msg.text },
-      screenLines: { ...state.screenLines, [msg.termId]: msg.lines }
+      screenLines: { ...state.screenLines, [msg.termId]: msg.lines },
+      ...(msg.history ? { screenHistory: { ...state.screenHistory, [msg.termId]: msg.history } } : {})
     })
   }
   else if (msg.t === 'attention') {

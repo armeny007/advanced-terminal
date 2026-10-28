@@ -39,8 +39,9 @@ export interface ScreenSeg {
 export type HostMsg =
   | { t: 'state'; folders: MobileFolder[]; terminals: MobileTerm[] }
   /** текущий экран терминала — для подписанного терминала. text — без ANSI (для старых клиентов),
-   *  lines — те же строки со стилями: без них не видно выделения в меню Claude (оно только цветом) */
-  | { t: 'screen'; termId: string; text: string; lines?: ScreenSeg[][] }
+   *  lines — те же строки со стилями: без них не видно выделения в меню Claude (оно только цветом).
+   *  history — строки прокрутки над экраном; поле есть только когда история изменилась (шлётся реже) */
+  | { t: 'screen'; termId: string; text: string; lines?: ScreenSeg[][]; history?: ScreenSeg[][] }
   | { t: 'attention'; termId: string; status: ClaudeStatus; message?: string; completed: boolean }
 
 export type MobileKey = 'enter' | 'esc' | 'up' | 'down' | 'left' | 'right' | 'tab' | 'shift-tab' | 'ctrl-c'

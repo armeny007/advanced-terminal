@@ -5,8 +5,8 @@ import { Terminal } from '@xterm/headless'
 import type { IBufferCell, IBufferLine } from '@xterm/headless'
 import type { ScreenSeg } from '../../shared/mobile-protocol'
 
-/** сколько строк над видимым экраном отдаём (прокрутка назад на телефоне) */
-const EXTRA_ROWS = 60
+/** сколько строк истории (над видимым экраном) отдаём телефону */
+const HISTORY_ROWS = 150
 
 /** 16 базовых цветов — как THEME в TerminalCard (Catppuccin Mocha) */
 const ANSI16 = [
@@ -70,7 +70,7 @@ export class ScreenMirror {
   private term: Terminal
 
   constructor(cols: number, rows: number) {
-    this.term = new Terminal({ cols, rows, scrollback: 500, allowProposedApi: true })
+    this.term = new Terminal({ cols, rows, scrollback: 2000, allowProposedApi: true })
   }
 
   resize(cols: number, rows: number): void {
@@ -81,10 +81,10 @@ export class ScreenMirror {
     this.term.write(data, cb)
   }
 
-  /** строки буфера: последние rows + EXTRA_ROWS, без пустого хвоста */
+  /** видимый экран (последние rows строк буфера), без пустого хвоста */
   snapshot(): { text: string; lines: ScreenSeg[][] } {
     const buf = this.term.buffer.active
-    const start = Math.max(0, buf.length - this.term.rows - EXTRA_ROWS)
+    const start = Math.max(0, buf.length - this.term.rows)
     const cell = buf.getNullCell()
     const text: string[] = []
     const lines: ScreenSeg[][] = []
@@ -98,6 +98,19 @@ export class ScreenMirror {
       lines.pop()
     }
     return { text: text.join('\n'), lines }
+  }
+
+  /** история над видимым экраном — последние HISTORY_ROWS строк прокрутки */
+  history(): ScreenSeg[][] {
+    const buf = this.term.buffer.active
+    const end = Math.max(0, buf.length - this.term.rows)
+    const cell = buf.getNullCell()
+    const lines: ScreenSeg[][] = []
+    for (let i = Math.max(0, end - HISTORY_ROWS); i < end; i++) {
+      const line = buf.getLine(i)
+      lines.push(line ? lineSegs(line, cell) : [])
+    }
+    return lines
   }
 
   dispose(): void {

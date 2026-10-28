@@ -5,7 +5,7 @@ import { app } from 'electron'
 import type { IpcMain } from 'electron'
 import { IPC } from '../../shared/types'
 import type { MobileRuntimeState, MobileSettings } from '../../shared/types'
-import type { ClientMsg, HostMsg, MobileTerm } from '../../shared/mobile-protocol'
+import type { ClientMsg, HostMsg, MobileTerm, ScreenSeg } from '../../shared/mobile-protocol'
 import { PAIR_SCHEME } from '../../shared/mobile-protocol'
 import type { PtyManager, Store } from '../contracts'
 import { addAttentionHook } from '../attention'
@@ -27,6 +27,8 @@ const KEY_SEQ: Record<string, string> = {
 }
 /** как часто шлём экран/состояние, мс */
 const SCREEN_THROTTLE = 250
+/** историю над экраном шлём не чаще, мс — она большая и при стриминге ответа растёт постоянно */
+const HISTORY_THROTTLE = 2000
 const STATE_THROTTLE = 200
 
 export function initMobile(ipcMain: IpcMain, store: Store, pty: PtyManager): void {
@@ -83,49 +85,90 @@ export function initMobile(ipcMain: IpcMain, store: Store, pty: PtyManager): voi
   }
   store.onChange(pushState)
 
-  // --- зеркало экрана подписанного терминала (одно: телефон смотрит один терминал) ---
-  let mirror: { termId: string; m: ScreenMirror; last: string; timer: NodeJS.Timeout | null } | null = null
-  const dropMirror = (): void => {
-    if (!mirror) return
-    if (mirror.timer) clearTimeout(mirror.timer)
-    mirror.m.dispose()
-    mirror = null
+  // --- зеркала экранов: пока связь включена, headless xterm у каждого терминала с выводом —
+  // так копится история прокрутки (телефон листает вверх), а не только последний кадр ---
+  const mirrors = new Map<string, { m: ScreenMirror; needsNudge: boolean }>()
+  let sub: { termId: string; lastScreen: string; lastHist: string; histAt: number; timer: NodeJS.Timeout | null } | null =
+    null
+  const dropMirrors = (): void => {
+    for (const e of mirrors.values()) e.m.dispose()
+    mirrors.clear()
+    if (sub?.timer) clearTimeout(sub.timer)
+    sub = null
+  }
+  const ensureMirror = (termId: string, cb?: () => void): { m: ScreenMirror; needsNudge: boolean } => {
+    let e = mirrors.get(termId)
+    if (e) {
+      cb?.()
+      return e
+    }
+    const { cols, rows } = pty.getSize(termId)
+    e = { m: new ScreenMirror(cols, rows), needsNudge: true }
+    mirrors.set(termId, e)
+    // накопленный хвост — чтобы экран появился сразу, не дожидаясь нового вывода
+    e.m.write(pty.getRecentOutput(termId), cb)
+    return e
   }
   const scheduleScreen = (): void => {
-    if (!mirror || mirror.timer) return
-    mirror.timer = setTimeout(() => {
-      if (!mirror) return
-      mirror.timer = null
-      const { text, lines } = mirror.m.snapshot()
+    if (!sub || sub.timer) return
+    sub.timer = setTimeout(() => {
+      if (!sub) return
+      sub.timer = null
+      const e = mirrors.get(sub.termId)
+      if (!e) return
+      const { text, lines } = e.m.snapshot()
       // сравниваем со стилями: перемещение выделения в меню меняет только цвет, не текст
       const key = JSON.stringify(lines)
-      if (key === mirror.last) return
-      mirror.last = key
-      link?.send({ t: 'screen', termId: mirror.termId, text, lines })
+      let history: ScreenSeg[][] | undefined
+      const sinceHist = Date.now() - sub.histAt
+      if (sinceHist >= HISTORY_THROTTLE) {
+        const h = e.m.history()
+        const hk = JSON.stringify(h)
+        if (hk !== sub.lastHist) {
+          sub.lastHist = hk
+          sub.histAt = Date.now()
+          history = h
+        }
+      } else {
+        // историю сейчас не смотрели — проверим, когда пройдёт интервал (вывода может больше не быть)
+        setTimeout(scheduleScreen, HISTORY_THROTTLE - sinceHist)
+      }
+      if (key === sub.lastScreen && !history) return
+      sub.lastScreen = key
+      link?.send({ t: 'screen', termId: sub.termId, text, lines, history })
     }, SCREEN_THROTTLE)
   }
   const subscribe = (termId: string | null): void => {
-    dropMirror()
+    if (sub?.timer) clearTimeout(sub.timer)
+    sub = null
     if (!termId || !store.getTerminal(termId)) return
-    const { cols, rows } = pty.getSize(termId)
-    const m = new ScreenMirror(cols, rows)
-    mirror = { termId, m, last: '', timer: null }
-    // накопленный хвост — чтобы экран появился сразу, не дожидаясь нового вывода
-    m.write(pty.getRecentOutput(termId), () => {
-      if (mirror?.m !== m) return
-      mirror.last = ''
+    sub = { termId, lastScreen: '', lastHist: '', histAt: 0, timer: null }
+    const e = ensureMirror(termId, () => {
+      if (sub?.termId !== termId) return
       scheduleScreen()
+      if (!e.needsNudge) return
+      e.needsNudge = false
       // в хвосте буфера только последние кадры TUI (Claude рисует поверх, абсолютными позициями),
       // верх экрана в зеркале пустой. Дёргаем размер pty — TUI перерисовывает весь экран целиком
+      const { cols, rows } = pty.getSize(termId)
       pty.resize(termId, cols - 1, rows)
       pty.resize(termId, cols, rows)
     })
   }
   pty.onOutput((id, data) => {
-    if (!mirror || mirror.termId !== id) return
+    if (!link) return
     const { cols, rows } = pty.getSize(id)
-    mirror.m.resize(cols, rows)
-    mirror.m.write(data, scheduleScreen)
+    const e = ensureMirror(id)
+    e.m.resize(cols, rows)
+    e.m.write(data, sub?.termId === id ? scheduleScreen : undefined)
+  })
+  store.onChange((st) => {
+    for (const id of mirrors.keys()) {
+      if (!st.terminals.some((t) => t.id === id)) {
+        mirrors.get(id)?.m.dispose()
+        mirrors.delete(id)
+      }
+    }
   })
 
   // --- команды с телефона ---
@@ -168,7 +211,7 @@ export function initMobile(ipcMain: IpcMain, store: Store, pty: PtyManager): voi
   function stop(): void {
     link?.close()
     link = null
-    dropMirror()
+    dropMirrors()
     connected = false
     clients = 0
   }
@@ -192,7 +235,7 @@ export function initMobile(ipcMain: IpcMain, store: Store, pty: PtyManager): voi
         clients = n
         if (err) lastError = err
         else if (c) lastError = null
-        if (n === 0) dropMirror() // телефон отключился — экран больше никому не нужен
+        if (n === 0) subscribe(null) // телефон отключился — экран больше никому не нужен
         else if (hadClients === 0) link?.send(stateMsg()) // первый телефон — сразу состояние
         broadcast()
       }

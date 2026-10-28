@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   ActionSheetIOS,
   Alert,
@@ -29,8 +29,9 @@ const KEYS: { label: string; key: MobileKey }[] = [
   { label: '^C', key: 'ctrl-c' }
 ]
 
-/** строки экрана со стилями — вложенные Text (выделенный пункт меню Claude виден только цветом) */
-function StyledScreen({ lines }: { lines: ScreenSeg[][] }): React.JSX.Element {
+/** строки экрана со стилями — вложенные Text (выделенный пункт меню Claude виден только цветом).
+ *  memo: история над экраном меняется редко, а экран — каждые 250 мс */
+const StyledScreen = memo(function StyledScreen({ lines }: { lines: ScreenSeg[][] }): React.JSX.Element {
   return (
     <>
       {lines.map((line, y) => (
@@ -56,13 +57,14 @@ function StyledScreen({ lines }: { lines: ScreenSeg[][] }): React.JSX.Element {
       ))}
     </>
   )
-}
+})
 
 export function TerminalScreen({ route, navigation }: NativeStackScreenProps<Routes, 'Terminal'>): React.JSX.Element {
   const { termId } = route.params
   const term = useStore((s) => s.terminals.find((t) => t.id === termId))
   const screen = useStore((s) => s.screens[termId] ?? '')
   const lines = useStore((s) => s.screenLines[termId])
+  const history = useStore((s) => s.screenHistory[termId])
   const hostOnline = useStore((s) => s.hostOnline)
   const [text, setText] = useState('')
   const [fontSize, setFontSize] = useState(11)
@@ -147,6 +149,12 @@ export function TerminalScreen({ route, navigation }: NativeStackScreenProps<Rou
       >
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <Text style={[s.mono, { fontSize, lineHeight: fontSize * 1.35 }]} selectable>
+            {history?.length ? (
+              <>
+                <StyledScreen lines={history} />
+                {'\n'}
+              </>
+            ) : null}
             {lines?.length ? (
               <StyledScreen lines={lines} />
             ) : (
