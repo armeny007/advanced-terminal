@@ -22,6 +22,7 @@ const KEY_SEQ: Record<string, string> = {
   left: `${ESC}[D`,
   right: `${ESC}[C`,
   tab: '\t',
+  'shift-tab': `${ESC}[Z`,
   'ctrl-c': String.fromCharCode(3)
 }
 /** как часто шлём экран/состояние, мс */
@@ -111,10 +112,13 @@ export function initMobile(ipcMain: IpcMain, store: Store, pty: PtyManager): voi
     mirror = { termId, m, last: '', timer: null }
     // накопленный хвост — чтобы экран появился сразу, не дожидаясь нового вывода
     m.write(pty.getRecentOutput(termId), () => {
-      if (mirror?.m === m) {
-        mirror.last = ''
-        scheduleScreen()
-      }
+      if (mirror?.m !== m) return
+      mirror.last = ''
+      scheduleScreen()
+      // в хвосте буфера только последние кадры TUI (Claude рисует поверх, абсолютными позициями),
+      // верх экрана в зеркале пустой. Дёргаем размер pty — TUI перерисовывает весь экран целиком
+      pty.resize(termId, cols - 1, rows)
+      pty.resize(termId, cols, rows)
     })
   }
   pty.onOutput((id, data) => {
@@ -206,6 +210,7 @@ export function initMobile(ipcMain: IpcMain, store: Store, pty: PtyManager): voi
   ipcMain.handle(IPC.mobileGetPairing, () => pairingCode())
   ipcMain.handle(IPC.mobileGenPairing, () => {
     secrets.save(toB64Url(newSecret()))
+    store.setMobile({ enabled: true }) // новый код — значит, связь нужна
     reconcile()
     return pairingCode()
   })

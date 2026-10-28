@@ -25,7 +25,7 @@ const KEYS: { label: string; key: MobileKey }[] = [
   { label: '↓', key: 'down' },
   { label: '←', key: 'left' },
   { label: '→', key: 'right' },
-  { label: 'Tab', key: 'tab' },
+  { label: '⇧Tab', key: 'shift-tab' },
   { label: '^C', key: 'ctrl-c' }
 ]
 

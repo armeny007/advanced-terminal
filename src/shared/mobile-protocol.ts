@@ -43,7 +43,7 @@ export type HostMsg =
   | { t: 'screen'; termId: string; text: string; lines?: ScreenSeg[][] }
   | { t: 'attention'; termId: string; status: ClaudeStatus; message?: string; completed: boolean }
 
-export type MobileKey = 'enter' | 'esc' | 'up' | 'down' | 'left' | 'right' | 'tab' | 'ctrl-c'
+export type MobileKey = 'enter' | 'esc' | 'up' | 'down' | 'left' | 'right' | 'tab' | 'shift-tab' | 'ctrl-c'
 
 /** client → host */
 export type ClientMsg =

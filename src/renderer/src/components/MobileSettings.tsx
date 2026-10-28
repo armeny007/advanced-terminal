@@ -37,6 +37,7 @@ export function MobileSettings({ onClose }: { onClose: () => void }): React.JSX.
   const genPairing = async (): Promise<void> => {
     if (pairing && !window.confirm('Создать новый код? Уже подключённые телефоны отвяжутся.')) return
     setPairing(await window.api.generateMobilePairing())
+    setRt(await window.api.getMobileRuntime()) // код включает связь
   }
 
   const statusText = !rt

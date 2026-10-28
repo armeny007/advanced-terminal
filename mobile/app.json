@@ -13,8 +13,12 @@
       "bundleIdentifier": "dev.armen.advterm",
       "infoPlist": {
         "NSCameraUsageDescription": "Сканирование QR-кода сопряжения с приложением на Mac",
-        "NSAppTransportSecurity": { "NSAllowsArbitraryLoads": true }
-      }
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        },
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "buildNumber": "1"
     },
     "android": {
       "package": "dev.armen.advterm",
@@ -24,12 +28,29 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
-    "web": { "favicon": "./assets/favicon.png" },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
     "plugins": [
-      ["expo-camera", { "cameraPermission": "Сканирование QR-кода сопряжения" }],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Сканирование QR-кода сопряжения"
+        }
+      ],
       "expo-secure-store"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "33460826-b1ad-45fb-b48d-44f122dc5e57"
+      }
+    },
+    "owner": "armeny007"
   }
 }

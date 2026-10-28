@@ -6,3 +6,4 @@ dist/
 # на всякий случай: секреты бота хранятся в userData вне репо, но не тащим их и внутрь дерева
 telegram.token.*
 mobile/.claude/
+.claude/worktrees/

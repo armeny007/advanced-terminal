@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Alert, Pressable, SectionList, StyleSheet, Text, View } from 'react-native'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import type { MobileTerm } from '../../../src/shared/mobile-protocol'
@@ -12,13 +13,20 @@ export function TerminalsScreen({ navigation }: NativeStackScreenProps<Routes, '
   const connected = useStore((s) => s.connected)
   const hostOnline = useStore((s) => s.hostOnline)
   const attention = useStore((s) => s.attention)
+  const [collapsed, setCollapsed] = useState<string[]>([])
+  const toggle = (id: string): void =>
+    setCollapsed((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]))
 
-  const sections = folders.map((f) => ({
-    folder: f,
-    data: terminals
-      .filter((t) => t.folderId === f.id)
-      .sort((a, b) => Number(!!a.archived) - Number(!!b.archived))
-  }))
+  const sections = folders.map((f) => {
+    const all = terminals.filter((t) => t.folderId === f.id)
+    const isCollapsed = collapsed.includes(f.id)
+    return {
+      folder: f,
+      count: all.length,
+      isCollapsed,
+      data: isCollapsed ? [] : all.sort((a, b) => Number(!!a.archived) - Number(!!b.archived))
+    }
+  })
 
   const status = !connected ? 'нет связи с релеем…' : !hostOnline ? 'Mac не в сети' : null
   const attTerm = attention ? terminals.find((t) => t.id === attention.termId) : undefined
@@ -52,10 +60,14 @@ export function TerminalsScreen({ navigation }: NativeStackScreenProps<Routes, '
         stickySectionHeadersEnabled={false}
         renderSectionHeader={({ section }) => (
           <View style={s.header}>
-            <Text style={s.headerText}>
-              {section.folder.icon ? `${section.folder.icon} ` : ''}
-              {section.folder.name}
-            </Text>
+            <Pressable style={s.headerToggle} hitSlop={6} onPress={() => toggle(section.folder.id)}>
+              <Text style={s.chevron}>{section.isCollapsed ? '▸' : '▾'}</Text>
+              <Text style={s.headerText} numberOfLines={1}>
+                {section.folder.icon ? `${section.folder.icon} ` : ''}
+                {section.folder.name}
+              </Text>
+              <Text style={s.headerCount}>{section.count}</Text>
+            </Pressable>
             <Pressable hitSlop={10} onPress={() => send({ t: 'newterm', folderId: section.folder.id })}>
               <Text style={s.headerAdd}>＋</Text>
             </Pressable>
@@ -118,7 +130,10 @@ const s = StyleSheet.create({
     paddingTop: 18,
     paddingBottom: 6
   },
-  headerText: { color: C.muted, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.6, flex: 1 },
+  headerToggle: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
+  chevron: { color: C.muted, fontSize: 14, width: 14, textAlign: 'center' },
+  headerText: { color: C.muted, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.6, flexShrink: 1 },
+  headerCount: { color: C.muted, fontSize: 12, marginRight: 12 },
   headerAdd: { color: C.accent, fontSize: 18 },
   row: {
     flexDirection: 'row',

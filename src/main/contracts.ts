@@ -58,6 +58,8 @@ export interface PtyManager {
   writeToTerminal(id: string, data: string): void
   /** запись в pty без изменения статуса (стрелки/навигация по меню — не ответ) */
   writeRaw(id: string, data: string): void
+  /** поменять размер pty, не трогая запомненный размер окна */
+  resize(id: string, cols: number, rows: number): void
   /** убивает pty; запись в store не трогает */
   killTerminal(id: string): void
   /** перезапускает shell в том же cwd (тот же id) */
