@@ -1,6 +1,6 @@
 // Состояние приложения: минимальный внешний стор на useSyncExternalStore (без зависимостей).
 import { useSyncExternalStore } from 'react'
-import type { HostMsg, MobileFolder, MobileTerm } from '../../src/shared/mobile-protocol'
+import type { HostMsg, MobileFolder, MobileTerm, ScreenSeg } from '../../src/shared/mobile-protocol'
 
 export interface Attention {
   termId: string
@@ -21,6 +21,8 @@ export interface State {
   terminals: MobileTerm[]
   /** последний экран по терминалу */
   screens: Record<string, string>
+  /** тот же экран со стилями (нет у старых версий приложения на Mac) */
+  screenLines: Record<string, ScreenSeg[][] | undefined>
   attention: Attention | null
 }
 
@@ -31,6 +33,7 @@ let state: State = {
   folders: [],
   terminals: [],
   screens: {},
+  screenLines: {},
   attention: null
 }
 const listeners = new Set<() => void>()
@@ -46,7 +49,12 @@ export function setState(patch: Partial<State>): void {
 
 export function applyHostMsg(msg: HostMsg): void {
   if (msg.t === 'state') setState({ folders: msg.folders, terminals: msg.terminals })
-  else if (msg.t === 'screen') setState({ screens: { ...state.screens, [msg.termId]: msg.text } })
+  else if (msg.t === 'screen') {
+    setState({
+      screens: { ...state.screens, [msg.termId]: msg.text },
+      screenLines: { ...state.screenLines, [msg.termId]: msg.lines }
+    })
+  }
   else if (msg.t === 'attention') {
     setState({
       attention: { termId: msg.termId, status: msg.status, message: msg.message, completed: msg.completed, at: Date.now() }

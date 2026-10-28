@@ -12,7 +12,7 @@ import {
   View
 } from 'react-native'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
-import type { MobileKey } from '../../../src/shared/mobile-protocol'
+import type { MobileKey, ScreenSeg } from '../../../src/shared/mobile-protocol'
 import { send, subscribe } from '../link'
 import { useStore } from '../store'
 import { C, STATUS_COLOR, STATUS_LABEL } from '../theme'
@@ -29,10 +29,40 @@ const KEYS: { label: string; key: MobileKey }[] = [
   { label: '^C', key: 'ctrl-c' }
 ]
 
+/** строки экрана со стилями — вложенные Text (выделенный пункт меню Claude виден только цветом) */
+function StyledScreen({ lines }: { lines: ScreenSeg[][] }): React.JSX.Element {
+  return (
+    <>
+      {lines.map((line, y) => (
+        <Text key={y}>
+          {line.map((g, x) => {
+            // dim — полупрозрачный цвет: opacity во вложенном Text не работает
+            const fg = (g.fg ?? C.text) + (g.d ? '99' : '')
+            return (
+              <Text
+                key={x}
+                style={{
+                  color: g.i ? (g.bg ?? C.surface2) : fg,
+                  backgroundColor: g.i ? fg : g.bg,
+                  fontWeight: g.b ? '700' : undefined
+                }}
+              >
+                {g.s}
+              </Text>
+            )
+          })}
+          {y < lines.length - 1 ? '\n' : ''}
+        </Text>
+      ))}
+    </>
+  )
+}
+
 export function TerminalScreen({ route, navigation }: NativeStackScreenProps<Routes, 'Terminal'>): React.JSX.Element {
   const { termId } = route.params
   const term = useStore((s) => s.terminals.find((t) => t.id === termId))
   const screen = useStore((s) => s.screens[termId] ?? '')
+  const lines = useStore((s) => s.screenLines[termId])
   const hostOnline = useStore((s) => s.hostOnline)
   const [text, setText] = useState('')
   const [fontSize, setFontSize] = useState(11)
@@ -105,7 +135,11 @@ export function TerminalScreen({ route, navigation }: NativeStackScreenProps<Rou
       <ScrollView ref={scroll} style={s.screen} contentContainerStyle={s.screenContent}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <Text style={[s.mono, { fontSize, lineHeight: fontSize * 1.35 }]} selectable>
-            {screen || (hostOnline ? '(экран пуст — ожидание вывода)' : '')}
+            {lines?.length ? (
+              <StyledScreen lines={lines} />
+            ) : (
+              screen || (hostOnline ? '(экран пуст — ожидание вывода)' : '')
+            )}
           </Text>
         </ScrollView>
       </ScrollView>

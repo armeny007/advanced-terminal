@@ -95,10 +95,12 @@ export function initMobile(ipcMain: IpcMain, store: Store, pty: PtyManager): voi
     mirror.timer = setTimeout(() => {
       if (!mirror) return
       mirror.timer = null
-      const text = mirror.m.snapshot()
-      if (text === mirror.last) return
-      mirror.last = text
-      link?.send({ t: 'screen', termId: mirror.termId, text })
+      const { text, lines } = mirror.m.snapshot()
+      // сравниваем со стилями: перемещение выделения в меню меняет только цвет, не текст
+      const key = JSON.stringify(lines)
+      if (key === mirror.last) return
+      mirror.last = key
+      link?.send({ t: 'screen', termId: mirror.termId, text, lines })
     }, SCREEN_THROTTLE)
   }
   const subscribe = (termId: string | null): void => {

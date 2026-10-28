@@ -22,11 +22,25 @@ export interface MobileTerm {
   alive: boolean
 }
 
+/** кусок строки экрана с одинаковым стилем; цвета — '#rrggbb', без поля — цвет по умолчанию */
+export interface ScreenSeg {
+  s: string
+  fg?: string
+  bg?: string
+  /** bold */
+  b?: 1
+  /** dim */
+  d?: 1
+  /** inverse (fg/bg меняются местами на клиенте — он знает цвета по умолчанию) */
+  i?: 1
+}
+
 /** host → client */
 export type HostMsg =
   | { t: 'state'; folders: MobileFolder[]; terminals: MobileTerm[] }
-  /** текущий экран терминала (строки буфера, без ANSI) — для подписанного терминала */
-  | { t: 'screen'; termId: string; text: string }
+  /** текущий экран терминала — для подписанного терминала. text — без ANSI (для старых клиентов),
+   *  lines — те же строки со стилями: без них не видно выделения в меню Claude (оно только цветом) */
+  | { t: 'screen'; termId: string; text: string; lines?: ScreenSeg[][] }
   | { t: 'attention'; termId: string; status: ClaudeStatus; message?: string; completed: boolean }
 
 export type MobileKey = 'enter' | 'esc' | 'up' | 'down' | 'left' | 'right' | 'tab' | 'ctrl-c'

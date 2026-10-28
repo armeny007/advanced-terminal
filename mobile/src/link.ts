@@ -52,7 +52,7 @@ export async function pair(code: string): Promise<boolean> {
 export async function unpair(): Promise<void> {
   await SecureStore.deleteItemAsync(PAIR_KEY)
   disconnect()
-  setState({ pairing: null, connected: false, hostOnline: false, folders: [], terminals: [], screens: {} })
+  setState({ pairing: null, connected: false, hostOnline: false, folders: [], terminals: [], screens: {}, screenLines: {} })
 }
 
 function disconnect(): void {
