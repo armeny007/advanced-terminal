@@ -196,6 +196,14 @@ export function initMobile(ipcMain: IpcMain, store: Store, pty: PtyManager): voi
         else if (msg.key === 'up' || msg.key === 'down') A.arrow(deps, msg.termId, msg.key)
         else pty.writeRaw(msg.termId, KEY_SEQ[msg.key] ?? '')
         return
+      case 'scroll': {
+        // колесо мыши в формате SGR; без режима мыши (обычный shell) события ушли бы мусором в ввод
+        const e = mirrors.get(msg.termId)
+        if (!e || !e.m.mouseTracking()) return
+        const n = Math.min(Math.max(1, msg.n | 0), 20)
+        pty.writeRaw(msg.termId, `${ESC}[<${msg.dir === 'up' ? 64 : 65};1;1M`.repeat(n))
+        return
+      }
       case 'claude':
         if (msg.mode === 'new') A.newSession(deps, msg.termId)
         else if (msg.mode === 'continue') A.continueSession(deps, msg.termId)

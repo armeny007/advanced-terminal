@@ -72,6 +72,8 @@ export function TerminalScreen({ route, navigation }: NativeStackScreenProps<Rou
   // следуем за выводом только пока пользователь у нижнего края — иначе снимки (каждые 250 мс,
   // пока крутится спиннер) сбрасывали бы прокрутку вниз и наверх было не уйти
   const atBottom = useRef(true)
+  // потянуть за верх/низ экрана — прокрутка внутри TUI (Claude листает транскрипт колесом мыши)
+  const lastWheel = useRef(0)
 
   // подписка на экран — пока открыт этот терминал
   useEffect(() => {
@@ -145,6 +147,12 @@ export function TerminalScreen({ route, navigation }: NativeStackScreenProps<Rou
         onScroll={(e) => {
           const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent
           atBottom.current = contentOffset.y + layoutMeasurement.height >= contentSize.height - 40
+          const maxY = Math.max(0, contentSize.height - layoutMeasurement.height)
+          const over = contentOffset.y < -24 ? 'up' : contentOffset.y > maxY + 24 ? 'down' : null
+          if (over && Date.now() - lastWheel.current > 250) {
+            lastWheel.current = Date.now()
+            send({ t: 'scroll', termId, dir: over, n: 2 })
+          }
         }}
       >
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>

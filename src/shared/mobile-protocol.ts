@@ -53,6 +53,8 @@ export type ClientMsg =
   | { t: 'sub'; termId: string | null }
   | { t: 'prompt'; termId: string; text: string }
   | { t: 'key'; termId: string; key: MobileKey }
+  /** прокрутка внутри TUI (Claude листает транскрипт колесом мыши): n событий колеса */
+  | { t: 'scroll'; termId: string; dir: 'up' | 'down'; n: number }
   | { t: 'claude'; termId: string; mode: 'new' | 'continue' | 'resume' | 'restart' }
   | { t: 'archive'; termId: string; archived: boolean }
   | { t: 'newterm'; folderId: string }

@@ -113,6 +113,11 @@ export class ScreenMirror {
     return lines
   }
 
+  /** приложение в терминале включило отслеживание мыши (Claude, vim) — ему можно слать колесо */
+  mouseTracking(): boolean {
+    return this.term.modes.mouseTrackingMode !== 'none'
+  }
+
   dispose(): void {
     this.term.dispose()
   }
