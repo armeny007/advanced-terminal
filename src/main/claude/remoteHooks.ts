@@ -12,7 +12,7 @@ export async function installRemoteHooks(host: string): Promise<{ ok: boolean; e
   try {
     const { stdout } = await run(
       'ssh',
-      [...SSH_OPTS, host, 'echo "$HOME"; cat "$HOME/.claude/settings.json" 2>/dev/null'],
+      [...SSH_OPTS, host, 'echo "$HOME"; cat "$HOME/.claude/settings.json" 2>/dev/null; true'],
       { timeout: 30_000, maxBuffer: 4 * 1024 * 1024 }
     )
     const nl = stdout.indexOf('\n')

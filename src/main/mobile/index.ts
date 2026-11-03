@@ -198,9 +198,10 @@ export function initMobile(ipcMain: IpcMain, store: Store, pty: PtyManager): voi
         return
       case 'scroll': {
         // колесо мыши в формате SGR; без режима мыши (обычный shell) события ушли бы мусором в ввод
+        // одно событие = одна строка транскрипта; страница — экран минус рамка Claude (промпт, статус)
         const e = mirrors.get(msg.termId)
         if (!e || !e.m.mouseTracking()) return
-        const n = Math.min(Math.max(1, msg.n | 0), 20)
+        const n = Math.min(Math.max(1, msg.pages | 0), 5) * Math.max(1, e.m.rows - 8)
         pty.writeRaw(msg.termId, `${ESC}[<${msg.dir === 'up' ? 64 : 65};1;1M`.repeat(n))
         return
       }

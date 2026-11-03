@@ -149,9 +149,9 @@ export function TerminalScreen({ route, navigation }: NativeStackScreenProps<Rou
           atBottom.current = contentOffset.y + layoutMeasurement.height >= contentSize.height - 40
           const maxY = Math.max(0, contentSize.height - layoutMeasurement.height)
           const over = contentOffset.y < -24 ? 'up' : contentOffset.y > maxY + 24 ? 'down' : null
-          if (over && Date.now() - lastWheel.current > 250) {
+          if (over && Date.now() - lastWheel.current > 600) {
             lastWheel.current = Date.now()
-            send({ t: 'scroll', termId, dir: over, n: 2 })
+            send({ t: 'scroll', termId, dir: over, pages: 1 })
           }
         }}
       >

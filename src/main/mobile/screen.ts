@@ -118,6 +118,10 @@ export class ScreenMirror {
     return this.term.modes.mouseTrackingMode !== 'none'
   }
 
+  get rows(): number {
+    return this.term.rows
+  }
+
   dispose(): void {
     this.term.dispose()
   }
