@@ -6,6 +6,7 @@ import type {
   FolderPatch,
   MobileSettings,
   ProjectConfig,
+  Question,
   RunClaudeMode,
   TelegramSettings,
   TermInfo,
@@ -28,6 +29,13 @@ export interface Store {
   moveTerminal(id: string, folderId: string, beforeId: string | null): void
   getTerminal(id: string): TermInfo | undefined
   findTerminalBySession(sessionId: string): TermInfo | undefined
+
+  /** вопросы сессий владельцу: добавить/заменить по id, изменить, удалить; удаление терминала удаляет его вопросы */
+  upsertQuestion(q: Question): void
+  updateQuestion(id: string, patch: Partial<Question>): Question | undefined
+  removeQuestion(id: string): void
+  /** снять все вопросы терминала (сессия завершилась или сменилась) */
+  clearQuestions(termId: string): void
 
   setHooksInstalled(v: boolean): void
   setFolderDetached(id: string, detached: boolean): void

@@ -9,7 +9,7 @@ import { IPC } from '../shared/types'
 import type { ClaudeLaunchOptions, FolderInfo, FolderPatch, RunClaudeMode, TermInfo } from '../shared/types'
 import type { CreateTerminalOpts, PtyManager, Store } from './contracts'
 import { FOLDER_COLORS } from './store'
-import { EVENTS_DIR } from './paths'
+import { BIN_DIR, EVENTS_DIR } from './paths'
 import { runtime, send } from './runtime'
 import { sessionFileExists } from './claude/usage'
 import { getRemoteEventsPort, remotePortFor } from './claude/remoteEvents'
@@ -31,6 +31,7 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
       ...process.env,
       ADVTERM_TERM_ID: id,
       ADVTERM_EVENTS_DIR: EVENTS_DIR,
+      PATH: `${BIN_DIR}:${process.env.PATH ?? ''}`, // advterm-ask для сессий Claude
       TERM: 'xterm-256color',
       COLORTERM: 'truecolor'
     }
@@ -45,7 +46,7 @@ export function initPty(ipcMain: IpcMain, store: Store): PtyManager {
       if (lport) args.push('-R', `127.0.0.1:${rport}:127.0.0.1:${lport}`)
       const remoteCmd =
         `cd ${remoteQuote(cwd)} 2>/dev/null; ` +
-        `export ADVTERM_TERM_ID=${id} ADVTERM_EVENTS_URL=http://127.0.0.1:${rport}/; exec "$SHELL" -l`
+        `export ADVTERM_TERM_ID=${id} ADVTERM_EVENTS_URL=http://127.0.0.1:${rport}/ PATH="$HOME/.advanced-terminal/bin:$PATH"; exec "$SHELL" -l`
       p = pty.spawn('ssh', [...args, sshHost, remoteCmd], { ...opts, cwd: homedir() })
     } else {
       p = pty.spawn(process.env.SHELL || '/bin/zsh', ['-l'], { ...opts, cwd })

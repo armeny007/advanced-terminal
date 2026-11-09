@@ -9,11 +9,13 @@ import { EVENTS_DIR } from '../paths'
 import { send } from '../runtime'
 import { emitAttention } from '../attention'
 import { notifyStatus } from './notifications'
+import { clearToolQuestions, handleAskEvent, handleToolQuestion } from './questions'
 
 interface EventPayload {
   session_id?: string
   cwd?: string
   message?: string
+  tool_name?: string
   [k: string]: unknown
 }
 
@@ -120,6 +122,13 @@ async function processFile(store: Store, fileName: string, terminated: Set<strin
   if (!term) return // терминал уже удалён
 
   lastActivity.set(termId, Date.now()) // любое событие = признак активности
+  if (hookEvent === 'question') {
+    handleAskEvent(store, termId, payload)
+    return
+  }
+  if (payload.tool_name === 'AskUserQuestion' && (hookEvent === 'PreToolUse' || hookEvent === 'PostToolUse')) {
+    handleToolQuestion(store, termId, hookEvent, payload)
+  }
   const prev = term.status
   let status: ClaudeStatus
   const patch: Partial<TermInfo> = {}
@@ -128,8 +137,11 @@ async function processFile(store: Store, fileName: string, terminated: Set<strin
     case 'SessionStart':
       status = 'idle'
       terminated.delete(termId) // началась новая активность
-      // автопривязка сессии к терминалу
-      if (typeof payload.session_id === 'string') patch.claudeSessionId = payload.session_id
+      // автопривязка сессии к терминалу; другая сессия — её вопросы уже неактуальны
+      if (typeof payload.session_id === 'string') {
+        if (payload.session_id !== term.claudeSessionId) store.clearQuestions(termId)
+        patch.claudeSessionId = payload.session_id
+      }
       break
     case 'UserPromptSubmit':
       status = 'working'
@@ -148,10 +160,14 @@ async function processFile(store: Store, fileName: string, terminated: Set<strin
     case 'Stop':
       status = 'idle'
       terminated.add(termId)
+      clearToolQuestions(store, termId)
       break
     case 'SessionEnd':
       status = 'none' // claudeSessionId сохраняем
       terminated.add(termId)
+      // вопросы advterm-ask не трогаем: SessionEnd приходит и при выходе из приложения,
+      // а сессия потом возобновляется — их снимет только другая сессия (SessionStart)
+      clearToolQuestions(store, termId)
       break
     default:
       return

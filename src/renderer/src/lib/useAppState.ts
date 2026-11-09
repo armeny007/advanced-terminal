@@ -4,6 +4,7 @@ import { DEFAULT_CLAUDE_LAUNCH, DEFAULT_MOBILE, DEFAULT_TELEGRAM } from '../../.
 
 const EMPTY: AppState = {
   folders: [],
+  questions: [],
   terminals: [],
   activeFolderId: '',
   hooksInstalled: true,

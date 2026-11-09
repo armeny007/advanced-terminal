@@ -48,6 +48,8 @@ const api: AdvTermApi = {
   getUsage: (projectPath, sessionId) => ipcRenderer.invoke(IPC.claudeUsage, projectPath, sessionId),
   installHooks: () => ipcRenderer.invoke(IPC.claudeInstallHooks),
   onClaudeStatus: (cb) => on(IPC.claudeStatus, cb as never),
+  answerQuestion: (id, answer) => ipcRenderer.invoke(IPC.questionAnswer, id, answer),
+  dismissQuestion: (id) => ipcRenderer.invoke(IPC.questionDismiss, id),
 
   // ui
   setFocusedTerm: (id) => ipcRenderer.send(IPC.uiSetFocusedTerm, id),

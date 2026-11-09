@@ -51,6 +51,8 @@ export function TerminalCard({
   hidden = false,
   maximized = false,
   onToggleMaximize,
+  questionCount,
+  onOpenQuestions,
   onNewClaudeSession,
   onOpenSessions,
   onChangeCwd,
@@ -64,6 +66,9 @@ export function TerminalCard({
   hidden?: boolean
   maximized?: boolean
   onToggleMaximize?: () => void
+  /** сколько вопросов сессии ждут решения владельца */
+  questionCount: number
+  onOpenQuestions: (term: TermInfo) => void
   onNewClaudeSession: (term: TermInfo) => void
   onOpenSessions: (bindTermId: string, cwd: string) => void
   onChangeCwd: (term: TermInfo) => void
@@ -301,6 +306,15 @@ export function TerminalCard({
           </span>
         )}
         <div className="term-actions">
+          {questionCount > 0 && (
+            <button
+              className="icon-btn term-q-btn"
+              title="Сессия ждёт твоего решения — открыть вопросы"
+              onClick={() => onOpenQuestions(term)}
+            >
+              ❓ {questionCount}
+            </button>
+          )}
           <Menu
             align="right"
             trigger={(_o, toggle) => (

@@ -183,6 +183,7 @@ export function TopBar({
   sidebarOpen,
   onToggleSidebar,
   onSetView,
+  onOpenQuestions,
   onOpenSessions,
   onOpenSettings,
   onOpenMobile,
@@ -195,6 +196,7 @@ export function TopBar({
   sidebarOpen: boolean
   onToggleSidebar: () => void
   onSetView: (v: 'grid' | 'dashboard') => void
+  onOpenQuestions: () => void
   onOpenSessions: () => void
   onOpenSettings: () => void
   onOpenMobile: () => void
@@ -247,6 +249,13 @@ export function TopBar({
           onClick={() => onSetView(view === 'dashboard' ? 'grid' : 'dashboard')}
         >
           Дашборд
+        </button>
+        <button
+          className="btn"
+          title="Вопросы сессий Claude, ждущие твоего решения"
+          onClick={onOpenQuestions}
+        >
+          Вопросы{state.questions.length > 0 ? ` ${state.questions.length}` : ''}
         </button>
         <button className="btn" onClick={onOpenSessions}>
           Сессии

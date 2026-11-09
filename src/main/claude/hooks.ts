@@ -10,7 +10,8 @@ const HOOK_EVENTS = [
   'Stop',
   'Notification',
   'SessionEnd',
-  'PostToolUse'
+  'PostToolUse',
+  'PreToolUse' // только AskUserQuestion — вопросы владельцу в панели «Вопросы»
 ] as const
 
 /** Минимум событий, при которых статус-машина работоспособна */
@@ -35,6 +36,40 @@ mkdir -p "$dir" 2>/dev/null || exit 0
 f="$dir/$(date +%s)_\${RANDOM}__\${ADVTERM_TERM_ID}__\${1:-unknown}.json"
 cat > "$f.tmp" 2>/dev/null && mv "$f.tmp" "$f" 2>/dev/null
 exit 0
+`
+
+/** Содержимое bin/advterm-ask: вопрос владельцу из сессии Claude — событие `question` через hook.sh */
+export const ASK_SCRIPT_CONTENT = `#!/bin/bash
+# Advanced Terminal: вопрос владельцу из сессии Claude Code (панель «Вопросы»).
+#   advterm-ask add    --id Q1 --title "Коротко?" [--detail "Подробно…" | --detail-file f.md] [--options "да,нет,позже"]
+#   advterm-ask update --id Q1 [--title …] [--detail … | --detail-file …] [--options …]
+#   advterm-ask close  --id Q1 [--result "что решили"]
+[ -n "$ADVTERM_TERM_ID" ] || { echo "advterm-ask: не в терминале Advanced Terminal" >&2; exit 1; }
+op="$1"
+[ $# -gt 0 ] && shift
+id="" title="" detail="" options="" result=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --id) id="$2"; shift 2 ;;
+    --title) title="$2"; shift 2 ;;
+    --detail) detail="$2"; shift 2 ;;
+    --detail-file) detail="$(cat "$2")" || exit 1; shift 2 ;;
+    --options) options="$2"; shift 2 ;;
+    --result) result="$2"; shift 2 ;;
+    *) echo "advterm-ask: неизвестный аргумент: $1" >&2; exit 2 ;;
+  esac
+done
+case "$op" in
+  add|update|close) ;;
+  *) echo "usage: advterm-ask add|update|close --id ID [--title T] [--detail D | --detail-file F] [--options a,b] [--result R]" >&2; exit 2 ;;
+esac
+case "$id" in ''|*[!A-Za-z0-9_.-]*) echo "advterm-ask: --id: буквы, цифры, _ . -" >&2; exit 2 ;; esac
+[ "$op" = add ] && [ -z "$title" ] && { echo "advterm-ask: add: нужен --title" >&2; exit 2; }
+b64() { printf '%s' "$1" | base64 | tr -d '\n'; }
+# текстовые поля в base64 — JSON без экранирования; дальше тот же путь, что у событий hooks
+printf '{"op":"%s","id":"%s","title":"%s","detail":"%s","options":"%s","result":"%s"}' \
+  "$op" "$id" "$(b64 "$title")" "$(b64 "$detail")" "$(b64 "$options")" "$(b64 "$result")" \
+  | "$(dirname "$0")/../hook.sh" question
 `
 
 interface HookCommand {
@@ -72,6 +107,7 @@ export function mergeHooks(settings: SettingsJson, scriptPath: string): boolean 
       hooks: [{ type: 'command', command: `${scriptPath} ${event}` }]
     }
     if (event === 'PostToolUse') entry.matcher = '*'
+    if (event === 'PreToolUse') entry.matcher = 'AskUserQuestion'
     groups.push(entry)
     changed = true
   }

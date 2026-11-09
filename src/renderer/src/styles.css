@@ -376,7 +376,8 @@ textarea:focus {
   padding: 2px 0;
 }
 .sb-folder-head,
-.sb-term {
+.sb-term,
+.sb-archive-divider {
   display: flex;
   align-items: center;
   gap: 7px;
@@ -428,13 +429,19 @@ textarea:focus {
   color: var(--muted);
 }
 .sb-archive-divider {
+  width: auto;
   margin: 6px 10px 2px 16px;
-  padding-top: 4px;
+  padding: 4px 0 2px;
   border-top: 1px solid var(--border);
+  border-radius: 0;
   color: var(--muted);
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  gap: 2px;
+}
+.sb-archive-divider:hover {
+  color: var(--text);
 }
 .sb-term.current {
   background: var(--surface2);
@@ -454,6 +461,21 @@ textarea:focus {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.sb-q {
+  color: var(--accent);
+  font-weight: 700;
+  flex-shrink: 0;
+  padding: 0 4px;
+  border-radius: 4px;
+}
+.sb-q:hover {
+  background: var(--accent);
+  color: #11111b;
+}
+.term-q-btn {
+  color: var(--accent);
+  font-weight: 600;
 }
 .sb-ssh {
   color: #fab387;
@@ -1211,4 +1233,82 @@ textarea:focus {
   height: 16px !important;
   z-index: 0 !important;
   pointer-events: none;
+}
+
+/* окно «Вопросы» */
+.q-row {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+.q-row.deferred {
+  opacity: 0.7;
+}
+.q-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.q-term {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+}
+.q-term:hover {
+  color: var(--accent);
+}
+.q-dismiss {
+  margin-left: auto;
+}
+.q-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 6px 0 2px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.q-title:disabled {
+  cursor: default;
+}
+.q-detail {
+  margin: 4px 0 6px 20px;
+  padding: 8px 10px;
+  background: var(--surface2);
+  border-radius: 8px;
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--muted);
+  max-height: 320px;
+  overflow: auto;
+}
+.q-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding-left: 20px;
+}
+.q-input {
+  flex: 1;
+  min-width: 160px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 8px;
+  color: var(--text);
+  font-size: 12px;
 }

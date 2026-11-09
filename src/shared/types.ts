@@ -49,9 +49,46 @@ export interface TermInfo {
   sshHost?: string | null
 }
 
+/** Вариант ответа на вопрос (у вопросов инструмента AskUserQuestion — из самого инструмента) */
+export interface QuestionOption {
+  label: string
+  description?: string
+}
+
+/**
+ * Вопрос сессии Claude владельцу. Источник: команда advterm-ask из сессии (cli)
+ * или перехваченный хук инструмента AskUserQuestion (tool).
+ */
+export interface Question {
+  /** cli: `<termId>:<id из advterm-ask>`; tool: `<tool_use_id>:<индекс вопроса>` */
+  id: string
+  termId: string
+  source: 'cli' | 'tool'
+  title: string
+  /** подробное объяснение (markdown как текст); в UI свёрнуто */
+  detail: string
+  options: QuestionOption[]
+  /** deferred — отложен владельцем, в списке уходит в конец */
+  state: 'open' | 'deferred'
+  createdAt: number
+  /** tool: порядок вопросов в одном вызове инструмента — отвечать нужно по порядку */
+  tool?: { toolUseId: string; index: number; count: number; multiSelect: boolean }
+}
+
+/** Ответ владельца на вопрос из панели «Вопросы» */
+export type QuestionAnswer =
+  | { kind: 'yes' }
+  | { kind: 'no' }
+  | { kind: 'defer' }
+  | { kind: 'explain' }
+  | { kind: 'text'; text: string }
+  | { kind: 'option'; index: number }
+
 export interface AppState {
   folders: FolderInfo[]
   terminals: TermInfo[]
+  /** открытые вопросы сессий владельцу (панель «Вопросы») */
+  questions: Question[]
   activeFolderId: string
   /** установлены ли hooks Claude Code (проверяется при старте) */
   hooksInstalled: boolean
@@ -240,6 +277,8 @@ export const IPC = {
   claudeUsage: 'claude:usage', // invoke (projectPath, sessionId) => UsageStats | null
   claudeInstallHooks: 'claude:installHooks', // invoke () => {ok, error?}
   claudeStatus: 'claude:status', // on (ClaudeStatusEvent)
+  questionAnswer: 'question:answer', // invoke (id, QuestionAnswer) — ответ уходит в сессию
+  questionDismiss: 'question:dismiss', // invoke (id) — снять вопрос без ответа
 
   // ui
   uiSetFocusedTerm: 'ui:setFocusedTerm', // send (id | null) — для подавления уведомлений
@@ -312,6 +351,9 @@ export interface AdvTermApi {
   getUsage(projectPath: string, sessionId: string): Promise<UsageStats | null>
   installHooks(): Promise<{ ok: boolean; error?: string }>
   onClaudeStatus(cb: (e: ClaudeStatusEvent) => void): () => void
+  /** ответить на вопрос сессии (панель «Вопросы») */
+  answerQuestion(id: string, answer: QuestionAnswer): Promise<void>
+  dismissQuestion(id: string): Promise<void>
 
   // ui
   setFocusedTerm(id: string | null): void

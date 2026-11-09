@@ -9,6 +9,7 @@ import type {
   ClaudeLaunchOptions,
   FolderInfo,
   ProjectConfig,
+  Question,
   TelegramSettings,
   MobileSettings,
   TermInfo
@@ -19,6 +20,7 @@ import { DEFAULT_CLAUDE_LAUNCH, DEFAULT_MOBILE, DEFAULT_TELEGRAM } from '../shar
 interface PersistedState {
   folders: FolderInfo[]
   terminals: TermInfo[]
+  questions: Question[]
   activeFolderId: string
   projectConfigs: Record<string, ProjectConfig>
   autoResumeSessions: boolean
@@ -42,6 +44,7 @@ function defaultState(): PersistedState {
   return {
     folders: seed,
     terminals: [],
+    questions: [],
     activeFolderId: seed[0].id,
     projectConfigs: {},
     autoResumeSessions: false,
@@ -66,6 +69,7 @@ function loadState(file: string): PersistedState {
     return {
       folders,
       terminals,
+      questions: Array.isArray(raw.questions) ? raw.questions : [],
       activeFolderId,
       projectConfigs: raw.projectConfigs && typeof raw.projectConfigs === 'object' ? raw.projectConfigs : {},
       autoResumeSessions: raw.autoResumeSessions === true,
@@ -85,6 +89,7 @@ export function createStore(): Store {
   const state: AppState = {
     folders: persisted.folders,
     terminals: persisted.terminals,
+    questions: persisted.questions,
     activeFolderId: persisted.activeFolderId,
     hooksInstalled: false,
     detachedFolderIds: [],
@@ -106,6 +111,7 @@ export function createStore(): Store {
     const data: PersistedState = {
       folders: state.folders,
       terminals: state.terminals,
+      questions: state.questions,
       activeFolderId: state.activeFolderId,
       projectConfigs,
       autoResumeSessions: state.autoResumeSessions,
@@ -196,6 +202,7 @@ export function createStore(): Store {
       const idx = state.terminals.findIndex((t) => t.id === id)
       if (idx === -1) return
       state.terminals.splice(idx, 1)
+      state.questions = state.questions.filter((q) => q.termId !== id)
       commit()
     },
     moveTerminal: (id, folderId, beforeId) => {
@@ -211,6 +218,31 @@ export function createStore(): Store {
     getTerminal: (id) => state.terminals.find((t) => t.id === id),
     findTerminalBySession: (sessionId) =>
       state.terminals.find((t) => t.claudeSessionId === sessionId),
+
+    upsertQuestion: (q) => {
+      const idx = state.questions.findIndex((x) => x.id === q.id)
+      if (idx === -1) state.questions.push(q)
+      else state.questions[idx] = q
+      commit()
+    },
+    updateQuestion: (id, patch) => {
+      const q = state.questions.find((x) => x.id === id)
+      if (!q) return undefined
+      Object.assign(q, patch)
+      commit()
+      return q
+    },
+    removeQuestion: (id) => {
+      const idx = state.questions.findIndex((x) => x.id === id)
+      if (idx === -1) return
+      state.questions.splice(idx, 1)
+      commit()
+    },
+    clearQuestions: (termId) => {
+      if (!state.questions.some((q) => q.termId === termId)) return
+      state.questions = state.questions.filter((q) => q.termId !== termId)
+      commit()
+    },
 
     setHooksInstalled: (v) => {
       state.hooksInstalled = v

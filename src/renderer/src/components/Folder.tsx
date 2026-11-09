@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { FolderInfo, TermInfo } from '../../../shared/types'
+import type { FolderInfo, Question, TermInfo } from '../../../shared/types'
 import { Menu } from '../lib/ui'
 import { STATUS_COLOR, STATUS_LABEL, statusPulses } from '../lib/status'
 import { TerminalCard } from './TerminalCard'
@@ -9,6 +9,8 @@ export function Folder({
   terminals,
   allFolders,
   active,
+  questions,
+  onOpenQuestions,
   highlightTermId,
   maximizeReq,
   onNewTerminal,
@@ -25,6 +27,9 @@ export function Folder({
   terminals: TermInfo[]
   allFolders: FolderInfo[]
   active: boolean
+  /** открытые вопросы сессий — счётчик в шапке терминала */
+  questions: Question[]
+  onOpenQuestions: (term: TermInfo) => void
   highlightTermId: string | null
   /** развернуть терминал на всю папку (выбор в сайдбаре) */
   maximizeReq: { id: string; n: number } | null
@@ -125,6 +130,8 @@ export function Folder({
               hidden={t.archived || (effMax != null && t.id !== effMax)}
               maximized={t.id === effMax}
               onToggleMaximize={() => setMaximizedId((prev) => (prev === t.id ? null : t.id))}
+              questionCount={questions.filter((q) => q.termId === t.id).length}
+              onOpenQuestions={onOpenQuestions}
               onNewClaudeSession={onNewClaudeSession}
               onOpenSessions={onOpenSessions}
               onChangeCwd={onChangeCwd}

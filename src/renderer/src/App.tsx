@@ -7,6 +7,7 @@ import { TopBar } from './components/TopBar'
 import { Folder } from './components/Folder'
 import { Sidebar } from './components/Sidebar'
 import { Dashboard } from './components/Dashboard'
+import { Questions } from './components/Questions'
 import { SessionsBrowser } from './components/SessionsBrowser'
 import { GlobalSearch } from './components/GlobalSearch'
 import type { SearchResult } from './components/GlobalSearch'
@@ -27,6 +28,7 @@ type Modal =
   | { type: 'claudeNew'; term: TermInfo }
   | { type: 'telegram' }
   | { type: 'mobile' }
+  | { type: 'questions'; termId: string | null }
   | null
 
 /** soloFolderId задан у окна отдельной папки (режим одной папки без вкладок) */
@@ -179,6 +181,8 @@ export default function App({ soloFolderId }: { soloFolderId?: string }): React.
         terminals={state.terminals.filter((t) => t.folderId === f.id)}
         allFolders={state.folders}
         active={f.id === activeId}
+        questions={state.questions}
+        onOpenQuestions={(term) => setModal({ type: 'questions', termId: term.id })}
         highlightTermId={highlight}
         maximizeReq={maximizeReq}
         onNewTerminal={() => newTerminal()}
@@ -222,6 +226,7 @@ export default function App({ soloFolderId }: { soloFolderId?: string }): React.
           sidebarOpen={sidebarOpen}
           onToggleSidebar={toggleSidebar}
           onSetView={setView}
+          onOpenQuestions={() => setModal({ type: 'questions', termId: null })}
           onOpenSessions={() => setModal({ type: 'sessions', bindTermId: null, filterCwd: null })}
           onOpenSettings={() => setModal({ type: 'telegram' })}
           onOpenMobile={() => setModal({ type: 'mobile' })}
@@ -300,6 +305,7 @@ export default function App({ soloFolderId }: { soloFolderId?: string }): React.
             activeFolderId={activeId}
             currentTermId={currentId}
             onPickTerm={(t) => revealTerm(t, true)}
+            onPickQuestions={(term) => setModal({ type: 'questions', termId: term.id })}
           />
         )}
         <div className="content-main">
@@ -338,6 +344,18 @@ export default function App({ soloFolderId }: { soloFolderId?: string }): React.
       {modal?.type === 'diff' && <DiffModal term={modal.term} onClose={() => setModal(null)} />}
       {modal?.type === 'telegram' && <TelegramSettings onClose={() => setModal(null)} />}
       {modal?.type === 'mobile' && <MobileSettings onClose={() => setModal(null)} />}
+      {modal?.type === 'questions' && (
+        <Questions
+          state={state}
+          filterTermId={modal.termId}
+          onClearFilter={() => setModal({ type: 'questions', termId: null })}
+          onOpenTerm={(term) => {
+            setModal(null)
+            revealTerm(term)
+          }}
+          onClose={() => setModal(null)}
+        />
+      )}
       {modal?.type === 'folderPath' && (
         <PromptModal
           title="Новый терминал в папке"

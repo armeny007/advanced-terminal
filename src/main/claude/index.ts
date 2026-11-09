@@ -1,11 +1,12 @@
 // Интеграция с Claude Code: hooks, статус-машина, сессии, usage, worktrees.
 import type { IpcMain } from 'electron'
 import { chmodSync, mkdirSync, writeFileSync } from 'fs'
-import type { ProjectConfig } from '../../shared/types'
+import type { ProjectConfig, QuestionAnswer } from '../../shared/types'
 import { IPC } from '../../shared/types'
 import type { PtyManager, Store } from '../contracts'
-import { ADVTERM_DIR, EVENTS_DIR, HOOK_SCRIPT } from '../paths'
-import { HOOK_SCRIPT_CONTENT, hooksInstalled, installHooks } from './hooks'
+import { ADVTERM_DIR, ASK_SCRIPT, BIN_DIR, EVENTS_DIR, HOOK_SCRIPT } from '../paths'
+import { ASK_SCRIPT_CONTENT, HOOK_SCRIPT_CONTENT, hooksInstalled, installHooks } from './hooks'
+import { answerQuestion } from './questions'
 import { listSessions } from './sessions'
 import { getUsage } from './usage'
 import { startWatcher } from './watcher'
@@ -18,7 +19,12 @@ export function initClaude(ipcMain: IpcMain, store: Store, ptyManager: PtyManage
   // hook-скрипт перезаписываем всегда: он должен соответствовать текущей версии приложения
   writeFileSync(HOOK_SCRIPT, HOOK_SCRIPT_CONTENT)
   chmodSync(HOOK_SCRIPT, 0o755)
+  mkdirSync(BIN_DIR, { recursive: true })
+  writeFileSync(ASK_SCRIPT, ASK_SCRIPT_CONTENT)
+  chmodSync(ASK_SCRIPT, 0o755)
 
+  // хуки уже стоят — молча дописываем события, появившиеся в новых версиях (идемпотентно)
+  if (hooksInstalled()) installHooks()
   store.setHooksInstalled(hooksInstalled())
   startWatcher(store)
 
@@ -31,6 +37,11 @@ export function initClaude(ipcMain: IpcMain, store: Store, ptyManager: PtyManage
     if (res.ok) store.setHooksInstalled(true)
     return res
   })
+
+  ipcMain.handle(IPC.questionAnswer, (_e, id: string, answer: QuestionAnswer) =>
+    answerQuestion({ store, pty: ptyManager }, id, answer)
+  )
+  ipcMain.handle(IPC.questionDismiss, (_e, id: string) => store.removeQuestion(id))
 
   ipcMain.handle(IPC.wtList, (_e, projectPath: string) => listWorktrees(projectPath))
   ipcMain.handle(
