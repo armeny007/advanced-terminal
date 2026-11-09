@@ -6,7 +6,9 @@ import type { ActionDeps } from './actions'
 import * as A from './actions'
 import { consumePairingCode } from './pairing'
 import { escapeHtml } from './output'
-import { dashboardView, folderView, statusSummary, terminalView } from './views'
+import { dashboardView, folderView, questionView, statusSummary, terminalView } from './views'
+import { answerQuestion, findQuestionByKey } from '../claude/questions'
+import type { QuestionAnswer } from '../../shared/types'
 
 const HELP = [
   'Advanced Terminal — управление сессиями Claude Code.',
@@ -14,6 +16,7 @@ const HELP = [
   'Команды:',
   '/menu — вкладки и терминалы (в теме группы — сессии этой вкладки)',
   '/status — что ждёт ввода',
+  '/questions — открытые вопросы сессий (то, что ждёт твоего решения)',
   '/help — эта справка',
   '',
   'Кнопки на карточке сессии:',
@@ -50,6 +53,7 @@ export function createBot(token: string, deps: ActionDeps): Telegraf {
   const bot = new Telegraf(token)
   const { store } = deps
   const replyTargets = new Map<number, string>() // userId -> termId (режим ответа)
+  const questionTargets = new Map<number, string>() // userId -> id вопроса («Свой ответ»)
 
   const isAllowed = (uid?: number): boolean =>
     uid != null && store.getState().telegram.allowedChatIds.includes(uid)
@@ -98,6 +102,14 @@ export function createBot(token: string, deps: ActionDeps): Telegraf {
     const uid = ctx.from?.id
     const text = msgText(ctx)
     if (uid == null || !text) return next()
+    // «Свой ответ» на вопрос сессии: текст уходит как ответ на этот вопрос
+    const qid = questionTargets.get(uid)
+    if (qid) {
+      questionTargets.delete(uid)
+      const ok = answerQuestion(deps, qid, { kind: 'text', text })
+      await ctx.reply(ok ? '📨 Ответ отправлен в сессию.' : 'Вопрос уже закрыт.')
+      return
+    }
     const target = replyTargets.get(uid)
     if (!target) return next()
     replyTargets.delete(uid)
@@ -145,6 +157,7 @@ export function createBot(token: string, deps: ActionDeps): Telegraf {
   bot.command('help', async (ctx) => {
     await ctx.reply(HELP)
   })
+  bot.command('questions', showQuestions)
   bot.command('bindgroup', handleBindgroup)
 
   bot.on('callback_query', async (ctx) => {
@@ -175,6 +188,7 @@ export function createBot(token: string, deps: ActionDeps): Telegraf {
       await ctx.reply(HELP)
       return
     }
+    if (/^\/questions(\s|$)/.test(text)) return showQuestions(ctx)
     if (/^\/bindgroup(\s|$)/.test(text)) return handleBindgroup(ctx)
     // прочий текст без армированной цели игнорируем (режим ответа — в middleware выше)
   })
@@ -191,6 +205,68 @@ export function createBot(token: string, deps: ActionDeps): Telegraf {
     const fid = folderForThread(threadOf(ctx))
     const v = fid ? folderView(store, fid) : dashboardView(store)
     await ctx.reply(v.text, v.keyboard)
+  }
+
+  // /questions: в теме форум-группы — вопросы терминалов этой вкладки, иначе все; отложенные в конце
+  async function showQuestions(ctx: Context): Promise<void> {
+    const fid = folderForThread(threadOf(ctx))
+    const list = store
+      .getState()
+      .questions.filter((q) => !fid || store.getTerminal(q.termId)?.folderId === fid)
+      .sort((a, b) => Number(a.state === 'deferred') - Number(b.state === 'deferred') || a.createdAt - b.createdAt)
+    if (list.length === 0) {
+      await ctx.reply('Открытых вопросов нет.')
+      return
+    }
+    for (const q of list) {
+      const v = questionView(store, q)
+      await ctx.reply(v.text, { parse_mode: 'HTML', reply_markup: v.keyboard.reply_markup })
+    }
+  }
+
+  // кнопки под вопросом сессии: q:<op>:<ключ>
+  async function handleQuestion(ctx: Context, op: string, key: string): Promise<void> {
+    const q = findQuestionByKey(store, key)
+    if (!q) {
+      await ctx.answerCbQuery('Вопрос уже закрыт')
+      return
+    }
+    if (op === 't') {
+      if (ctx.from?.id != null) questionTargets.set(ctx.from.id, q.id)
+      await ctx.answerCbQuery('Пришлите ответ сообщением')
+      await ctx.reply(`✍️ Следующее сообщение уйдёт ответом на вопрос: ${q.title}`)
+      return
+    }
+    let answer: QuestionAnswer
+    let shown: string
+    if (op === 'y') [answer, shown] = [{ kind: 'yes' }, 'да']
+    else if (op === 'n') [answer, shown] = [{ kind: 'no' }, 'нет']
+    else if (op === 'd') [answer, shown] = [{ kind: 'defer' }, '']
+    else if (op === 'e') [answer, shown] = [{ kind: 'explain' }, '']
+    else if (/^o\d+$/.test(op) && q.options[Number(op.slice(1))]) {
+      const index = Number(op.slice(1))
+      ;[answer, shown] = [{ kind: 'option', index }, q.options[index].label]
+    } else return
+    if (!answerQuestion(deps, q.id, answer)) {
+      await ctx.answerCbQuery('Сначала ответьте на предыдущий вопрос этой сессии')
+      return
+    }
+    if (answer.kind === 'explain') {
+      await ctx.answerCbQuery('Попросил сессию пояснить — обновлённый вопрос придёт сообщением')
+      return
+    }
+    // ответ дан или вопрос отложен — фиксируем это в сообщении; у отвеченного убираем кнопки
+    const note = answer.kind === 'defer' ? '⏸ Отложен' : `✅ Ответ: ${shown}`
+    const v = questionView(store, { ...q, state: answer.kind === 'defer' ? 'deferred' : 'open' }, note)
+    await ctx.answerCbQuery(answer.kind === 'defer' ? 'Отложен' : 'Ответ отправлен')
+    try {
+      await ctx.editMessageText(v.text, {
+        parse_mode: 'HTML',
+        reply_markup: answer.kind === 'defer' ? v.keyboard.reply_markup : undefined
+      })
+    } catch {
+      // сообщение слишком старое для правки — не критично
+    }
   }
 
   async function route(ctx: Context, data: string): Promise<void> {
@@ -213,6 +289,10 @@ export function createBot(token: string, deps: ActionDeps): Telegraf {
     if (data.startsWith('a:')) {
       const [, op, id] = data.split(':')
       await handleAction(ctx, op, id)
+    }
+    if (data.startsWith('q:')) {
+      const [, op, key] = data.split(':')
+      await handleQuestion(ctx, op, key)
     }
   }
 

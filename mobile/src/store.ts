@@ -1,6 +1,7 @@
 // Состояние приложения: минимальный внешний стор на useSyncExternalStore (без зависимостей).
 import { useSyncExternalStore } from 'react'
 import type { HostMsg, MobileFolder, MobileTerm, ScreenSeg } from '../../src/shared/mobile-protocol'
+import type { Question } from '../../src/shared/types'
 
 export interface Attention {
   termId: string
@@ -26,6 +27,8 @@ export interface State {
   /** история прокрутки над экраном (приходит реже экрана) */
   screenHistory: Record<string, ScreenSeg[][] | undefined>
   attention: Attention | null
+  /** открытые вопросы сессий владельцу */
+  questions: Question[]
 }
 
 let state: State = {
@@ -37,7 +40,8 @@ let state: State = {
   screens: {},
   screenLines: {},
   screenHistory: {},
-  attention: null
+  attention: null,
+  questions: []
 }
 const listeners = new Set<() => void>()
 
@@ -59,6 +63,7 @@ export function applyHostMsg(msg: HostMsg): void {
       ...(msg.history ? { screenHistory: { ...state.screenHistory, [msg.termId]: msg.history } } : {})
     })
   }
+  else if (msg.t === 'questions') setState({ questions: msg.list })
   else if (msg.t === 'attention') {
     setState({
       attention: { termId: msg.termId, status: msg.status, message: msg.message, completed: msg.completed, at: Date.now() }

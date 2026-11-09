@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { SearchAddon } from '@xterm/addon-search'
-import type { FolderInfo, TermInfo } from '../../../shared/types'
+import type { FolderInfo, Question, TermInfo } from '../../../shared/types'
 import { bus } from '../lib/bus'
 import { STATUS_COLOR, STATUS_LABEL, shortenPath, statusPulses } from '../lib/status'
 import { Menu } from '../lib/ui'
@@ -51,7 +51,7 @@ export function TerminalCard({
   hidden = false,
   maximized = false,
   onToggleMaximize,
-  questionCount,
+  questions,
   onOpenQuestions,
   onNewClaudeSession,
   onOpenSessions,
@@ -66,8 +66,8 @@ export function TerminalCard({
   hidden?: boolean
   maximized?: boolean
   onToggleMaximize?: () => void
-  /** сколько вопросов сессии ждут решения владельца */
-  questionCount: number
+  /** вопросы сессии владельцу (актуальные и отложенные) */
+  questions: Question[]
   onOpenQuestions: (term: TermInfo) => void
   onNewClaudeSession: (term: TermInfo) => void
   onOpenSessions: (bindTermId: string, cwd: string) => void
@@ -75,6 +75,7 @@ export function TerminalCard({
   onSetSsh: (term: TermInfo) => void
   onWorktreeDiff: (term: TermInfo) => void
 }): React.JSX.Element {
+  const qActive = questions.filter((q) => q.state === 'open').length
   const bodyRef = useRef<HTMLDivElement>(null)
   const fitRef = useRef<FitAddon | null>(null)
   const searchRef = useRef<SearchAddon | null>(null)
@@ -306,13 +307,14 @@ export function TerminalCard({
           </span>
         )}
         <div className="term-actions">
-          {questionCount > 0 && (
+          {questions.length > 0 && (
             <button
-              className="icon-btn term-q-btn"
-              title="Сессия ждёт твоего решения — открыть вопросы"
+              className={`icon-btn term-q-btn ${qActive === 0 ? 'all-deferred' : ''}`}
+              title={`Вопросы сессии: актуальных ${qActive}, отложено ${questions.length - qActive}`}
               onClick={() => onOpenQuestions(term)}
             >
-              ❓ {questionCount}
+              ❓ {qActive > 0 ? qActive : ''}
+              {questions.length > qActive ? `${qActive > 0 ? ' · ' : ''}${questions.length - qActive} отл.` : ''}
             </button>
           )}
           <Menu

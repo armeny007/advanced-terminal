@@ -477,6 +477,12 @@ textarea:focus {
   color: var(--accent);
   font-weight: 600;
 }
+/* только отложенные вопросы — не требуют внимания, приглушаем */
+.term-q-btn.all-deferred,
+.sb-q.all-deferred {
+  color: var(--muted);
+  font-weight: 400;
+}
 .sb-ssh {
   color: #fab387;
   font-size: 11px;
@@ -1264,6 +1270,10 @@ textarea:focus {
 }
 .q-dismiss {
   margin-left: auto;
+}
+.q-close {
+  margin-left: auto;
+  font-size: 16px;
 }
 .q-title {
   display: flex;

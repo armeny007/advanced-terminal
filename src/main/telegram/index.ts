@@ -3,7 +3,7 @@ import { app } from 'electron'
 import type { IpcMain } from 'electron'
 import type { Telegraf } from 'telegraf'
 import { IPC } from '../../shared/types'
-import type { TelegramRuntimeState, TelegramSettings } from '../../shared/types'
+import type { Question, TelegramRuntimeState, TelegramSettings } from '../../shared/types'
 import type { PtyManager, Store } from '../contracts'
 import { setAttentionHook } from '../attention'
 import type { AttentionEvent } from '../attention'
@@ -12,7 +12,8 @@ import { createBot } from './bot'
 import { generatePairingCode } from './pairing'
 import { clearToken, hasToken, loadToken, saveToken } from './secret'
 import { ensureTopics, watchTopics } from './topics'
-import { attentionText, terminalKeyboard } from './views'
+import { attentionText, questionView, terminalKeyboard } from './views'
+import { onQuestion } from '../claude/questions'
 
 function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
   return Promise.race([
@@ -50,9 +51,13 @@ export function initTelegram(ipcMain: IpcMain, store: Store, pty: PtyManager): v
   // иначе потеряется только что присланный /start <код>
   let firstLaunch = true
 
+  let offQuestion: (() => void) | null = null
+
   function stop(): void {
     generation++
     setAttentionHook(null)
+    offQuestion?.()
+    offQuestion = null
     if (bot) {
       try {
         bot.stop()
@@ -103,6 +108,8 @@ export function initTelegram(ipcMain: IpcMain, store: Store, pty: PtyManager): v
       starting = false
       broadcast()
       setAttentionHook((ev) => void pushAttention(ev)) // пуши «Claude ждёт тебя»
+      offQuestion?.()
+      offQuestion = onQuestion((q, kind) => void pushQuestion(q, kind)) // вопросы сессий с кнопками ответа
       watchTopics(b, store) // топики: тема = вкладка (Фаза 2)
       void ensureTopics(b, store)
       // поздняя смерть опроса (обрыв/конфликт) → отражаем и пробуем перезапустить
@@ -173,6 +180,34 @@ export function initTelegram(ipcMain: IpcMain, store: Store, pty: PtyManager): v
         } catch {
           // нет топика/прав
         }
+      }
+    }
+  }
+
+  /** Вопрос сессии владельцу: в личные чаты и в тему вкладки, с кнопками ответа */
+  async function pushQuestion(q: Question, kind: 'new' | 'updated'): Promise<void> {
+    if (!bot) return
+    const term = store.getTerminal(q.termId)
+    if (!term) return
+    const v = questionView(store, q, kind === 'updated' ? '🔄 Вопрос обновлён' : undefined)
+    const tg = store.getState().telegram
+    for (const chatId of tg.allowedChatIds) {
+      try {
+        await bot.telegram.sendMessage(chatId, v.text, { parse_mode: 'HTML', reply_markup: v.keyboard.reply_markup })
+      } catch {
+        // пользователь заблокировал бота / чат недоступен
+      }
+    }
+    const threadId = tg.groupChatId != null ? tg.folderTopics[term.folderId] : undefined
+    if (tg.groupChatId != null && threadId != null) {
+      try {
+        await bot.telegram.sendMessage(tg.groupChatId, v.text, {
+          parse_mode: 'HTML',
+          message_thread_id: threadId,
+          reply_markup: v.keyboard.reply_markup
+        })
+      } catch {
+        // нет топика/прав
       }
     }
   }

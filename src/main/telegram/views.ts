@@ -1,7 +1,9 @@
 // Чистый рендер экранов бота из состояния store: текст + inline-клавиатура.
 import { Markup } from 'telegraf'
-import type { ClaudeStatus, TermInfo } from '../../shared/types'
+import type { ClaudeStatus, Question, TermInfo } from '../../shared/types'
 import type { Store } from '../contracts'
+import { questionKey } from '../claude/questions'
+import { escapeHtml } from './output'
 
 type Keyboard = ReturnType<typeof Markup.inlineKeyboard>
 export interface View {
@@ -153,4 +155,32 @@ export function statusSummary(store: Store): string {
   const lines = ['Требуют внимания:']
   for (const t of need) lines.push(`${ICON[t.status]} ${folderName(store, t.folderId)} › ${t.name}`)
   return lines.join('\n')
+}
+
+/** лимит Telegram на сообщение — 4096; подробное объяснение режем с запасом */
+const DETAIL_MAX = 3000
+
+/**
+ * Вопрос сессии владельцу (HTML): заголовок, подробное объяснение свёрнутой цитатой,
+ * кнопки ответа. callback: q:<op>:<ключ>, op — y/n/d(отложить)/e(поясни)/t(свой ответ)/o<индекс варианта>
+ */
+export function questionView(store: Store, q: Question, note?: string): View & { text: string } {
+  const t = store.getTerminal(q.termId)
+  const where = t ? `${folderName(store, t.folderId)} › ${t.name}` : 'терминал удалён'
+  const lines = [`❓ <b>${escapeHtml(where)}</b>${q.state === 'deferred' ? ' · отложен' : ''}`, escapeHtml(q.title)]
+  const detail = q.detail.length > DETAIL_MAX ? q.detail.slice(0, DETAIL_MAX) + '…' : q.detail
+  if (detail) lines.push(`<blockquote expandable>${escapeHtml(detail)}</blockquote>`)
+  if (note) lines.push('', escapeHtml(note))
+  const key = questionKey(q.id)
+  const btn = (label: string, op: string): ReturnType<typeof Markup.button.callback> =>
+    Markup.button.callback(label, `q:${op}:${key}`)
+  const rows: ReturnType<typeof Markup.button.callback>[][] = []
+  // варианты — по одному в строке: подписи бывают длинными
+  q.options.forEach((o, i) => rows.push([btn(o.label, `o${i}`)]))
+  if (q.source === 'cli') {
+    rows.push([btn('✅ Да', 'y'), btn('❌ Нет', 'n')])
+    rows.push([btn('⏸ Откладываем', 'd'), btn('💬 Поясни', 'e')])
+  }
+  rows.push([btn('✍️ Свой ответ', 't')])
+  return { text: lines.join('\n'), keyboard: Markup.inlineKeyboard(rows) }
 }

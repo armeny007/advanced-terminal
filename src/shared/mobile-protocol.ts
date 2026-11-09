@@ -1,7 +1,7 @@
 // Протокол «приложение на Mac (host) ↔ мобильное приложение (client)» через релей.
 // Сообщения — JSON, зашифрованный на концах (ChaCha20-Poly1305, ключ из секрета сопряжения).
 // Этот файл импортируется мобильным приложением (mobile/) только как типы — держать без кода.
-import type { ClaudeStatus } from './types'
+import type { ClaudeStatus, Question, QuestionAnswer } from './types'
 
 export interface MobileFolder {
   id: string
@@ -43,6 +43,8 @@ export type HostMsg =
    *  history — строки прокрутки над экраном; поле есть только когда история изменилась (шлётся реже) */
   | { t: 'screen'; termId: string; text: string; lines?: ScreenSeg[][]; history?: ScreenSeg[][] }
   | { t: 'attention'; termId: string; status: ClaudeStatus; message?: string; completed: boolean }
+  /** открытые вопросы сессий владельцу — полный список при каждом изменении */
+  | { t: 'questions'; list: Question[] }
 
 export type MobileKey = 'enter' | 'esc' | 'up' | 'down' | 'left' | 'right' | 'tab' | 'shift-tab' | 'ctrl-c'
 
@@ -58,6 +60,9 @@ export type ClientMsg =
   | { t: 'claude'; termId: string; mode: 'new' | 'continue' | 'resume' | 'restart' }
   | { t: 'archive'; termId: string; archived: boolean }
   | { t: 'newterm'; folderId: string }
+  /** ответ на вопрос сессии / снять вопрос без ответа */
+  | { t: 'answer'; id: string; answer: QuestionAnswer }
+  | { t: 'dismiss'; id: string }
 
 /** Код сопряжения, который показывается в QR: advterm://pair?relay=…&key=… */
 export const PAIR_SCHEME = 'advterm://pair'

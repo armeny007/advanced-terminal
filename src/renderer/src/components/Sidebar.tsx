@@ -69,50 +69,56 @@ export function Sidebar({
         const archived = all.filter((t) => t.archived)
         const isArchiveOpen = archiveOpen.includes(f.id)
         const isCollapsed = collapsed.includes(f.id)
-        const renderTerm = (t: TermInfo): React.JSX.Element => (
-          <button
-            key={t.id}
-            className={`sb-term ${t.archived ? 'archived' : ''} ${t.id === currentTermId ? 'current' : ''} ${dragId === t.id ? 'dragging' : ''} ${
-              over === `term:${t.id}` && dragId !== t.id ? 'drop-before' : ''
-            }`}
-            title={`${t.name} — ${STATUS_LABEL[t.status]}\n${t.cwd}`}
-            onClick={() => onPickTerm(t)}
-            draggable
-            onDragStart={(e) => {
-              e.dataTransfer.effectAllowed = 'move'
-              setDragId(t.id)
-            }}
-            onDragEnd={() => {
-              setDragId(null)
-              setOver(null)
-            }}
-            onDragOver={dragOver(`term:${t.id}`)}
-            onDragLeave={() => setOver(null)}
-            onDrop={() => drop(f.id, t.id)}
-          >
-            <span
-              className={`dot ${statusPulses(t.status) ? 'pulse' : ''}`}
-              style={{ background: STATUS_COLOR[t.status] }}
-            />
-            <span className="sb-term-name">
-              {t.archived && '📦 '}
-              {t.name}
-            </span>
-            {t.sshHost && <span className="sb-ssh">⇅</span>}
-            {state.questions.some((q) => q.termId === t.id) && (
+        const renderTerm = (t: TermInfo): React.JSX.Element => {
+          const hasQ = state.questions.some((q) => q.termId === t.id)
+          const hasOpenQ = state.questions.some((q) => q.termId === t.id && q.state === 'open')
+          return (
+            <button
+              key={t.id}
+              className={`sb-term ${t.archived ? 'archived' : ''} ${t.id === currentTermId ? 'current' : ''} ${dragId === t.id ? 'dragging' : ''} ${
+                over === `term:${t.id}` && dragId !== t.id ? 'drop-before' : ''
+              }`}
+              title={`${t.name} — ${STATUS_LABEL[t.status]}\n${t.cwd}`}
+              onClick={() => onPickTerm(t)}
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.effectAllowed = 'move'
+                setDragId(t.id)
+              }}
+              onDragEnd={() => {
+                setDragId(null)
+                setOver(null)
+              }}
+              onDragOver={dragOver(`term:${t.id}`)}
+              onDragLeave={() => setOver(null)}
+              onDrop={() => drop(f.id, t.id)}
+            >
               <span
-                className="sb-q"
-                title="Сессия ждёт твоего решения — открыть вопросы"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onPickQuestions(t)
-                }}
-              >
-                ?
+                className={`dot ${statusPulses(t.status) ? 'pulse' : ''}`}
+                style={{ background: STATUS_COLOR[t.status] }}
+              />
+              <span className="sb-term-name">
+                {t.archived && '📦 '}
+                {t.name}
               </span>
-            )}
-          </button>
-        )
+              {t.sshHost && <span className="sb-ssh">⇅</span>}
+              {hasQ && (
+                <span
+                  className={`sb-q ${hasOpenQ ? '' : 'all-deferred'}`}
+                  title={
+                    hasOpenQ ? 'Сессия ждёт твоего решения — открыть вопросы' : 'Только отложенные вопросы — открыть'
+                  }
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onPickQuestions(t)
+                  }}
+                >
+                  ?
+                </span>
+              )}
+            </button>
+          )
+        }
         return (
           <div key={f.id} className={`sb-folder ${f.id === activeFolderId ? 'active' : ''}`}>
             <button

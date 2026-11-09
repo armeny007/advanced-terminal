@@ -1,15 +1,16 @@
 import { useEffect } from 'react'
-import { Linking } from 'react-native'
+import { AppState, Linking } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import { DarkTheme, NavigationContainer } from '@react-navigation/native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
-import { loadPairing, pair, parsePairing } from './src/link'
+import { ensureLive, loadPairing, pair, parsePairing } from './src/link'
 import { useStore } from './src/store'
 import { C } from './src/theme'
 import type { Routes } from './src/routes'
 import { PairScreen } from './src/screens/PairScreen'
 import { TerminalsScreen } from './src/screens/TerminalsScreen'
 import { TerminalScreen } from './src/screens/TerminalScreen'
+import { QuestionsScreen } from './src/screens/QuestionsScreen'
 
 const Stack = createNativeStackNavigator<Routes>()
 
@@ -28,7 +29,14 @@ export default function App(): React.JSX.Element {
     }
     Linking.getInitialURL().then(onUrl)
     const sub = Linking.addEventListener('url', (e) => onUrl(e.url))
-    return () => sub.remove()
+    // возврат из фона: сокет мог умереть молча, пока рантайм спал
+    const appSub = AppState.addEventListener('change', (st) => {
+      if (st === 'active') ensureLive()
+    })
+    return () => {
+      sub.remove()
+      appSub.remove()
+    }
   }, [])
 
   return (
@@ -38,6 +46,7 @@ export default function App(): React.JSX.Element {
         <Stack.Navigator>
           <Stack.Screen name="Terminals" component={TerminalsScreen} options={{ title: 'Терминалы' }} />
           <Stack.Screen name="Terminal" component={TerminalScreen} />
+          <Stack.Screen name="Questions" component={QuestionsScreen} options={{ title: 'Вопросы' }} />
         </Stack.Navigator>
       ) : (
         <PairScreen />

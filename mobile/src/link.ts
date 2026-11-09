@@ -13,6 +13,13 @@ let relayUrl = ''
 let retryMs = 1000
 let timer: ReturnType<typeof setTimeout> | null = null
 let subscribed: string | null = null
+let lastRxAt = 0
+let beat: ReturnType<typeof setInterval> | null = null
+
+/** как часто подтверждаем живость прикладным hello */
+const BEAT_MS = 20_000
+/** молчание дольше этого = сокет мёртв (релей пингует каждые 30с, но RN не отдаёт ping в JS) */
+const DEAD_MS = 45_000
 
 /** Разбор кода сопряжения advterm://pair?relay=…&key=… (или deep link Expo …/--/pair?…) */
 export function parsePairing(code: string): { relay: string; secret: Uint8Array } | null {
@@ -52,15 +59,55 @@ export async function pair(code: string): Promise<boolean> {
 export async function unpair(): Promise<void> {
   await SecureStore.deleteItemAsync(PAIR_KEY)
   disconnect()
-  setState({ pairing: null, connected: false, hostOnline: false, folders: [], terminals: [], screens: {}, screenLines: {}, screenHistory: {} })
+  setState({ pairing: null, connected: false, hostOnline: false, folders: [], terminals: [], screens: {}, screenLines: {}, screenHistory: {}, questions: [] })
+}
+
+function stopBeat(): void {
+  if (beat) clearInterval(beat)
+  beat = null
+}
+
+function startBeat(): void {
+  stopBeat()
+  beat = setInterval(() => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return
+    if (lastRxAt && Date.now() - lastRxAt > DEAD_MS) redial()
+    else send({ t: 'hello' })
+  }, BEAT_MS)
 }
 
 function disconnect(): void {
+  stopBeat()
   if (timer) clearTimeout(timer)
   timer = null
   const s = ws
   ws = null
   s?.close()
+}
+
+/** Переподключиться сейчас же, не теряя сопряжения и подписки */
+function redial(): void {
+  if (!keys) return
+  stopBeat()
+  if (timer) clearTimeout(timer)
+  timer = null
+  const s = ws
+  ws = null
+  s?.close()
+  retryMs = 1000
+  dial()
+}
+
+/**
+ * Приложение вернулось на экран. iOS в фоне усыпляет рантайм и рвёт TCP, причём onclose
+ * может не прийти — тогда ws остаётся в состоянии OPEN, таймер переподключения не заведён,
+ * и клиент висит мёртвым. Поэтому при каждом возврате убеждаемся в живости явно.
+ */
+export function ensureLive(): void {
+  if (!keys) return
+  if (!ws || ws.readyState !== WebSocket.OPEN) redial()
+  else if (lastRxAt && Date.now() - lastRxAt > BEAT_MS) redial()
+  else send({ t: 'hello' })
 }
 
 function connect(code: string): void {
@@ -79,11 +126,14 @@ function dial(): void {
   ws = sock
   sock.onopen = () => {
     retryMs = 1000
+    lastRxAt = Date.now()
+    startBeat()
     setState({ connected: true })
     send({ t: 'hello' })
     if (subscribed) send({ t: 'sub', termId: subscribed })
   }
   sock.onmessage = (e) => {
+    lastRxAt = Date.now()
     const text = String(e.data)
     if (text.startsWith('{')) {
       try {
@@ -110,6 +160,7 @@ function dial(): void {
   }
   const down = (): void => {
     if (ws !== sock) return
+    stopBeat()
     ws = null
     setState({ connected: false, hostOnline: false })
     if (!getState().pairing) return

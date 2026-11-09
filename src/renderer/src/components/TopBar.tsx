@@ -205,6 +205,10 @@ export function TopBar({
   onSearchFocus: () => void
 }): React.JSX.Element {
   const termsOf = (folderId: string): TermInfo[] => state.terminals.filter((t) => t.folderId === folderId)
+  // актуальные и отложенные вопросы сессий — отдельно
+  const deferred = state.questions.filter((q) => q.state === 'deferred').length
+  const active = state.questions.length - deferred
+  const qLabel = active > 0 || deferred > 0 ? ` ${active}${deferred > 0 ? ` · ${deferred} отл.` : ''}` : ''
 
   const addFolder = async (): Promise<void> => {
     const name = `Папка ${state.folders.length + 1}`
@@ -255,7 +259,7 @@ export function TopBar({
           title="Вопросы сессий Claude, ждущие твоего решения"
           onClick={onOpenQuestions}
         >
-          Вопросы{state.questions.length > 0 ? ` ${state.questions.length}` : ''}
+          Вопросы{qLabel}
         </button>
         <button className="btn" onClick={onOpenSessions}>
           Сессии

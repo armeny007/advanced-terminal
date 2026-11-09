@@ -66,6 +66,7 @@ export function TerminalScreen({ route, navigation }: NativeStackScreenProps<Rou
   const lines = useStore((s) => s.screenLines[termId])
   const history = useStore((s) => s.screenHistory[termId])
   const hostOnline = useStore((s) => s.hostOnline)
+  const questionCount = useStore((s) => s.questions.filter((q) => q.termId === termId).length)
   const [text, setText] = useState('')
   const [fontSize, setFontSize] = useState(11)
   const scroll = useRef<React.ComponentRef<typeof ScrollView>>(null)
@@ -138,6 +139,11 @@ export function TerminalScreen({ route, navigation }: NativeStackScreenProps<Rou
           {term?.claudeSessionId ? ` · ${term.claudeSessionId.slice(0, 8)}` : ''}
           {!hostOnline ? ' · Mac не в сети' : ''}
         </Text>
+        {questionCount > 0 && (
+          <Pressable style={s.qBtn} hitSlop={8} onPress={() => navigation.navigate('Questions', { termId })}>
+            <Text style={s.qBtnText}>❓ {questionCount}</Text>
+          </Pressable>
+        )}
       </View>
       <ScrollView
         ref={scroll}
@@ -201,7 +207,9 @@ const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 6 },
   dot: { width: 9, height: 9, borderRadius: 5 },
-  statusText: { color: C.muted, fontSize: 12 },
+  statusText: { color: C.muted, fontSize: 12, flex: 1 },
+  qBtn: { paddingHorizontal: 8 },
+  qBtnText: { color: C.accent, fontSize: 13, fontWeight: '600' },
   screen: { flex: 1, backgroundColor: C.surface2, marginHorizontal: 8, borderRadius: 8 },
   screenContent: { padding: 8 },
   mono: { color: C.text, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },

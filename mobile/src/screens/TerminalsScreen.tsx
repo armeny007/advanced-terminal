@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useLayoutEffect, useState } from 'react'
 import { Alert, Pressable, SectionList, StyleSheet, Text, View } from 'react-native'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import type { MobileTerm } from '../../../src/shared/mobile-protocol'
@@ -13,6 +13,7 @@ export function TerminalsScreen({ navigation }: NativeStackScreenProps<Routes, '
   const connected = useStore((s) => s.connected)
   const hostOnline = useStore((s) => s.hostOnline)
   const attention = useStore((s) => s.attention)
+  const questions = useStore((s) => s.questions)
   const [collapsed, setCollapsed] = useState<string[]>([])
   const toggle = (id: string): void =>
     setCollapsed((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]))
@@ -32,6 +33,18 @@ export function TerminalsScreen({ navigation }: NativeStackScreenProps<Routes, '
   const attTerm = attention ? terminals.find((t) => t.id === attention.termId) : undefined
 
   const open = (t: MobileTerm): void => navigation.navigate('Terminal', { termId: t.id })
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <Pressable onPress={() => navigation.navigate('Questions')} hitSlop={10}>
+          <Text style={{ color: C.accent, fontSize: 15 }}>
+            Вопросы{questions.length > 0 ? ` ${questions.length}` : ''}
+          </Text>
+        </Pressable>
+      )
+    })
+  }, [navigation, questions.length])
 
   return (
     <View style={s.root}>
@@ -86,6 +99,11 @@ export function TerminalsScreen({ navigation }: NativeStackScreenProps<Routes, '
                 {STATUS_LABEL[t.status]} · {t.cwd.replace(/^\/Users\/[^/]+/, '~')}
               </Text>
             </View>
+            {questions.some((q) => q.termId === t.id) && (
+              <Pressable hitSlop={12} onPress={() => navigation.navigate('Questions', { termId: t.id })}>
+                <Text style={s.qMark}>?</Text>
+              </Pressable>
+            )}
           </Pressable>
         )}
         ListEmptyComponent={<Text style={s.empty}>{hostOnline ? 'Нет терминалов' : 'Ожидание данных с Mac…'}</Text>}
@@ -146,6 +164,7 @@ const s = StyleSheet.create({
   },
   archived: { opacity: 0.5 },
   dot: { width: 10, height: 10, borderRadius: 5 },
+  qMark: { color: C.accent, fontSize: 18, fontWeight: '700', paddingHorizontal: 6 },
   name: { color: C.text, fontSize: 15 },
   sub: { color: C.muted, fontSize: 12, marginTop: 2 },
   empty: { color: C.muted, textAlign: 'center', marginTop: 60 },

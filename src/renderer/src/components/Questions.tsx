@@ -125,6 +125,8 @@ export function Questions({
   onClose: () => void
 }): React.JSX.Element {
   const filterTerm = state.terminals.find((t) => t.id === filterTermId)
+  const deferred = state.questions.filter((q) => q.state === 'deferred').length
+  const active = state.questions.length - deferred
   const list = state.questions
     .filter((q) => !filterTerm || q.termId === filterTerm.id)
     .sort((a, b) => Number(a.state === 'deferred') - Number(b.state === 'deferred') || a.createdAt - b.createdAt)
@@ -132,11 +134,18 @@ export function Questions({
     <Modal onClose={onClose} width="62%">
       <div className="modal-head">
         <h3>{filterTerm ? `Вопросы терминала «${filterTerm.name}»` : 'Вопросы сессий'}</h3>
+        <span className="muted small">
+          актуальных {filterTerm ? list.filter((q) => q.state === 'open').length : active} · отложено{' '}
+          {filterTerm ? list.filter((q) => q.state === 'deferred').length : deferred}
+        </span>
         {filterTerm && (
           <button className="btn small" onClick={onClearFilter}>
             Показать все {state.questions.length}
           </button>
         )}
+        <button className="icon-btn q-close" title="Закрыть (Esc)" onClick={onClose}>
+          ✕
+        </button>
       </div>
       <div className="modal-body">
         {list.length === 0 && <div className="muted">Открытых вопросов нет</div>}

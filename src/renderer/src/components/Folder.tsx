@@ -130,7 +130,7 @@ export function Folder({
               hidden={t.archived || (effMax != null && t.id !== effMax)}
               maximized={t.id === effMax}
               onToggleMaximize={() => setMaximizedId((prev) => (prev === t.id ? null : t.id))}
-              questionCount={questions.filter((q) => q.termId === t.id).length}
+              questions={questions.filter((q) => q.termId === t.id)}
               onOpenQuestions={onOpenQuestions}
               onNewClaudeSession={onNewClaudeSession}
               onOpenSessions={onOpenSessions}

@@ -10,6 +10,7 @@ import { requestSerialize } from '../runtime'
 import { PAIR_SCHEME } from '../../shared/mobile-protocol'
 import type { PtyManager, Store } from '../contracts'
 import { addAttentionHook } from '../attention'
+import { answerQuestion, onQuestion } from '../claude/questions'
 import { send } from '../runtime'
 import { createSecretStore } from '../secretStore'
 import * as A from '../telegram/actions'
@@ -85,6 +86,18 @@ export function initMobile(ipcMain: IpcMain, store: Store, pty: PtyManager): voi
     }, STATE_THROTTLE)
   }
   store.onChange(pushState)
+
+  // --- вопросы сессий владельцу: полный список при каждом изменении ---
+  let lastQuestions = ''
+  const pushQuestions = (force = false): void => {
+    if (!link || clients === 0) return
+    const list = store.getState().questions
+    const sig = JSON.stringify(list)
+    if (!force && sig === lastQuestions) return
+    lastQuestions = sig
+    link.send({ t: 'questions', list })
+  }
+  store.onChange(() => pushQuestions())
 
   // --- зеркала экранов: пока связь включена, headless xterm у каждого терминала с выводом —
   // так копится история прокрутки (телефон листает вверх), а не только последний кадр ---
@@ -184,6 +197,7 @@ export function initMobile(ipcMain: IpcMain, store: Store, pty: PtyManager): voi
     switch (msg.t) {
       case 'hello':
         link?.send(stateMsg())
+        pushQuestions(true)
         return
       case 'sub':
         subscribe(msg.termId)
@@ -217,8 +231,21 @@ export function initMobile(ipcMain: IpcMain, store: Store, pty: PtyManager): voi
       case 'newterm':
         A.createTerminal(deps, msg.folderId)
         return
+      case 'answer':
+        answerQuestion(deps, msg.id, msg.answer)
+        return
+      case 'dismiss':
+        store.removeQuestion(msg.id)
+        return
     }
   }
+
+  // новый вопрос — баннер на телефоне, как у «Claude ждёт»
+  onQuestion((q, kind) => {
+    if (kind === 'new') {
+      link?.send({ t: 'attention', termId: q.termId, status: 'needs_input', message: `❓ ${q.title}`, completed: false })
+    }
+  })
 
   addAttentionHook((ev) => {
     link?.send({ t: 'attention', termId: ev.termId, status: ev.status, message: ev.message, completed: ev.completed })
@@ -253,7 +280,10 @@ export function initMobile(ipcMain: IpcMain, store: Store, pty: PtyManager): voi
         if (err) lastError = err
         else if (c) lastError = null
         if (n === 0) subscribe(null) // телефон отключился — экран больше никому не нужен
-        else if (hadClients === 0) link?.send(stateMsg()) // первый телефон — сразу состояние
+        else if (hadClients === 0) {
+          link?.send(stateMsg()) // первый телефон — сразу состояние
+          pushQuestions(true)
+        }
         broadcast()
       }
     })

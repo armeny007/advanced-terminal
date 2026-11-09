@@ -4,9 +4,9 @@
 // Ответ владельца уходит в сессию: cli — текстом как промпт, tool — клавишами меню TUI
 // (цифра варианта; «Type something» = цифра N+1, текст, Enter; при нескольких вопросах
 // в одном вызове — по порядку, в конце Enter на экране «Submit answers»).
+import { createHash } from 'crypto'
 import type { Question, QuestionAnswer } from '../../shared/types'
 import type { PtyManager, Store } from '../contracts'
-import { emitAttention } from '../attention'
 import { sendPrompt } from '../telegram/actions'
 
 const CR = '\r'
@@ -15,6 +15,35 @@ const KEY_DELAY_MS = 250
 interface Deps {
   store: Store
   pty: PtyManager
+}
+
+// подписчики на появление/обновление вопроса (Telegram-бот, мобильное приложение)
+type QuestionListener = (q: Question, kind: 'new' | 'updated') => void
+const listeners = new Set<QuestionListener>()
+
+/** Подписаться на новые и обновлённые вопросы; возвращает функцию отписки */
+export function onQuestion(cb: QuestionListener): () => void {
+  listeners.add(cb)
+  return () => listeners.delete(cb)
+}
+
+function notify(q: Question, kind: 'new' | 'updated'): void {
+  for (const l of listeners) {
+    try {
+      l(q, kind)
+    } catch {
+      // подписчик не должен ронять watcher
+    }
+  }
+}
+
+/** короткий стабильный ключ вопроса — для callback-кнопок Telegram (лимит 64 байта) */
+export function questionKey(id: string): string {
+  return createHash('sha1').update(id).digest('hex').slice(0, 12)
+}
+
+export function findQuestionByKey(store: Store, key: string): Question | undefined {
+  return store.getState().questions.find((q) => questionKey(q.id) === key)
 }
 
 /** поля advterm-ask приходят в base64 — JSON без экранирования в bash */
@@ -43,11 +72,12 @@ export function handleAskEvent(store: Store, termId: string, payload: Record<str
     if (title) patch.title = title
     if (detail) patch.detail = detail
     if (options.length) patch.options = options
-    store.updateQuestion(id, patch)
+    const updated = store.updateQuestion(id, patch)
+    if (updated) notify(updated, 'updated')
     return
   }
   if (payload.op !== 'add' || !title) return
-  store.upsertQuestion({
+  const q: Question = {
     id,
     termId,
     source: 'cli',
@@ -56,8 +86,9 @@ export function handleAskEvent(store: Store, termId: string, payload: Record<str
     options,
     state: 'open',
     createdAt: prev?.createdAt ?? Date.now()
-  })
-  if (!prev) emitAttention({ termId, status: 'needs_input', message: `❓ ${title}`, completed: false })
+  }
+  store.upsertQuestion(q)
+  notify(q, prev ? 'updated' : 'new')
 }
 
 interface ToolQuestion {
@@ -83,21 +114,21 @@ export function handleToolQuestion(
   }
   const input = payload.tool_input as { questions?: ToolQuestion[] } | undefined
   const qs = Array.isArray(input?.questions) ? input.questions : []
-  qs.forEach((q, index) => {
-    store.upsertQuestion({
+  qs.forEach((tq, index) => {
+    const q: Question = {
       id: `${toolUseId}:${index}`,
       termId,
       source: 'tool',
-      title: q.question ?? '',
+      title: tq.question ?? '',
       detail: '',
-      options: (q.options ?? []).map((o) => ({ label: o.label ?? '', description: o.description })),
+      options: (tq.options ?? []).map((o) => ({ label: o.label ?? '', description: o.description })),
       state: 'open',
       createdAt: Date.now(),
-      tool: { toolUseId, index, count: qs.length, multiSelect: q.multiSelect === true }
-    })
+      tool: { toolUseId, index, count: qs.length, multiSelect: tq.multiSelect === true }
+    }
+    store.upsertQuestion(q)
+    notify(q, 'new')
   })
-  if (qs[0]?.question)
-    emitAttention({ termId, status: 'needs_input', message: `❓ ${qs[0].question}`, completed: false })
 }
 
 /** вопросы инструмента живут только пока ход не закончен (Stop): после — меню TUI уже нет */
@@ -107,11 +138,13 @@ export function clearToolQuestions(store: Store, termId: string): void {
   }
 }
 
-export function answerQuestion(deps: Deps, id: string, answer: QuestionAnswer): void {
+/** false — ответ не применён: вопроса уже нет или (tool) сначала нужно ответить на предыдущий */
+export function answerQuestion(deps: Deps, id: string, answer: QuestionAnswer): boolean {
   const q = deps.store.getState().questions.find((x) => x.id === id)
-  if (!q) return
-  if (q.source === 'tool') answerTool(deps, q, answer)
-  else answerCli(deps, q, answer)
+  if (!q) return false
+  if (q.source === 'tool') return answerTool(deps, q, answer)
+  answerCli(deps, q, answer)
+  return true
 }
 
 function answerCli({ store, pty }: Deps, q: Question, answer: QuestionAnswer): void {
@@ -142,19 +175,20 @@ function answerCli({ store, pty }: Deps, q: Question, answer: QuestionAnswer): v
   else if (answer.kind !== 'explain') store.removeQuestion(q.id)
 }
 
-function answerTool({ store, pty }: Deps, q: Question, answer: QuestionAnswer): void {
+function answerTool({ store, pty }: Deps, q: Question, answer: QuestionAnswer): boolean {
   const t = q.tool
-  if (!t) return
+  if (!t) return false
   const siblings = store.getState().questions.filter((x) => x.tool?.toolUseId === t.toolUseId)
   // TUI показывает вопросы по очереди — отвечать можно только на первый неотвеченный
-  if (siblings.some((x) => x.tool && x.tool.index < t.index)) return
+  if (siblings.some((x) => x.tool && x.tool.index < t.index)) return false
   const keys: string[] = []
   if (answer.kind === 'option') keys.push(String(answer.index + 1))
   else if (answer.kind === 'text') keys.push(String(q.options.length + 1), answer.text, CR)
-  else return
+  else return false
   if (t.multiSelect) keys.push(CR)
   const last = !siblings.some((x) => x.tool && x.tool.index > t.index)
   if (last && t.count > 1) keys.push(CR) // «Submit answers»
   keys.forEach((k, i) => setTimeout(() => pty.writeRaw(q.termId, k), i * KEY_DELAY_MS))
   store.removeQuestion(q.id)
+  return true
 }
